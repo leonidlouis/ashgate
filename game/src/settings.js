@@ -1,6 +1,6 @@
-// Player preferences: mouse sensitivity, bot difficulty and volume, kept in localStorage.
+// Preferences (mouse sensitivity, bot difficulty) kept in localStorage.
 const KEY = 'ashgate.settings';
-const DEFAULTS = { sensitivity: 1, difficulty: 'veteran', volume: 0.7 };
+const DEFAULTS = { sensitivity: 1, difficulty: 'veteran' };
 
 export function loadSettings() {
   try {

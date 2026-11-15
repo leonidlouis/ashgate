@@ -1,6 +1,5 @@
-// Saltworks in three.js: the grid turned into merged, world-UV geometry (one mesh per material, a
-// few dozen draw calls for the whole refinery), plus tanks, barrels, pipes, roof trusses, a gantry
-// over the Brine Channel, painted site letters and the refinery's signage.
+// Saltworks meshes: the grid as merged world-UV geometry (one mesh per material), plus tanks,
+// barrels, pipes, trusses, the mid gantry, site letters and signage.
 import * as THREE from 'three';
 import { GRID, LEGEND, COLS, ROWS, CELL, cellX, cellZ } from './mapdata.js';
 import { createMaterials, signTexture } from './textures.js';
@@ -49,12 +48,11 @@ const cylinder = new THREE.CylinderGeometry(1, 1, 1, 18, 1);
 const cylinderLow = new THREE.CylinderGeometry(1, 1, 1, 10, 1);
 const cube = new THREE.BoxGeometry(1, 1, 1);
 
-function add(root, geo, mat, [sx, sy, sz], [x, y, z], [rx, ry, rz] = [0, 0, 0], cast = true) {
+function add(root, geo, mat, [sx, sy, sz], [x, y, z], [rx, ry, rz] = [0, 0, 0]) {
   const m = new THREE.Mesh(geo, mat);
   m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.rotation.set(rx, ry, rz);
-  m.castShadow = cast; m.receiveShadow = true;
+  m.castShadow = m.receiveShadow = true;
   root.add(m);
-  return m;
 }
 
 export function buildWorld(scene, collision) {
@@ -137,7 +135,6 @@ function plane(root, tex, [x, y, z], [w, h], yaw, flat, opacity = 1) {
 }
 
 function addSigns(root) {
-  // painted site letters on the floor
   plane(root, signTexture([{ text: 'A', size: 220, y: 128 }], null, '#e86f2a', 256, 256), [cellX(8), 0.02, cellZ(6)], [5, 5], 0, true, 0.85);
   plane(root, signTexture([{ text: 'B', size: 220, y: 128 }], null, '#3d9fae', 256, 256), [cellX(40), 0.02, cellZ(7)], [5, 5], 0, true, 0.6);
   // boards on the walls: [title, subtitle, board, ink, cell col, cell row, wall offset, yaw]

@@ -1,11 +1,9 @@
-// The map as solid boxes, built once from the grid and indexed per cell. Movement, bullets,
-// grenades and bot sight all query it; rays walk the grid cell by cell (DDA) so a sight check only
-// touches boxes along its line. Nothing allocates after the build.
+// The map as boxes indexed per grid cell: rays walk the grid (DDA) for bullets and sight, bodies
+// slide and step up ledges. Nothing allocates after the build.
 import { GRID, LEGEND, COLS, ROWS, CELL, colOf, rowOf } from './mapdata.js';
 
 const EPS = 0.001;
 
-/** Greedy rectangles over the cells holding one character: few, large boxes. */
 function mergeRects(ch) {
   const used = new Uint8Array(COLS * ROWS);
   const take = (c, r) => c < COLS && r < ROWS && !used[r * COLS + c] && GRID[r][c] === ch;
@@ -21,6 +19,23 @@ function mergeRects(ch) {
     rects.push({ c, r, w, h });
   }
   return rects;
+}
+
+// Slab test of a ray (origin o, inverse direction inv) against a box { minX..maxZ }, one axis at a
+// time into a reused span. Returns the entry distance or -1 and writes the entry face's normal.
+const span = { t0: 0, t1: 0, axis: -1, sign: 0 };
+function slab(o, inv, lo, hi, k) {
+  let a = (lo - o) * inv, c = (hi - o) * inv;
+  if (a > c) { const s = a; a = c; c = s; }
+  if (a > span.t0) { span.t0 = a; span.axis = k; span.sign = inv > 0 ? -1 : 1; }
+  if (c < span.t1) span.t1 = c;
+  return span.t0 <= span.t1;
+}
+export function rayBox(b, ox, oy, oz, ix, iy, iz, maxT, hit) {
+  span.t0 = 0; span.t1 = maxT; span.axis = -1;
+  if (!slab(ox, ix, b.minX, b.maxX, 0) || !slab(oy, iy, b.minY, b.maxY, 1) || !slab(oz, iz, b.minZ, b.maxZ, 2) || span.axis < 0) return -1;
+  hit.nx = span.axis === 0 ? span.sign : 0; hit.ny = span.axis === 1 ? span.sign : 0; hit.nz = span.axis === 2 ? span.sign : 0;
+  return span.t0;
 }
 
 export function createCollision() {
@@ -53,24 +68,8 @@ export function createCollision() {
   }
   const overlaps = (b, x, z, r) => x + r > b.minX && x - r < b.maxX && z + r > b.minZ && z - r < b.maxZ;
 
-  // slab test against one box, one axis at a time into a reused span; writes the entry face normal
-  const span = { t0: 0, t1: 0, axis: -1, sign: 0 };
-  function slab(o, inv, lo, hi, k) {
-    let a = (lo - o) * inv, c = (hi - o) * inv;
-    if (a > c) { const s = a; a = c; c = s; }
-    if (a > span.t0) { span.t0 = a; span.axis = k; span.sign = inv > 0 ? -1 : 1; }
-    if (c < span.t1) span.t1 = c;
-    return span.t0 <= span.t1;
-  }
-  function rayBox(b, ox, oy, oz, ix, iy, iz, maxT, hit) {
-    span.t0 = 0; span.t1 = maxT; span.axis = -1;
-    if (!slab(ox, ix, b.minX, b.maxX, 0) || !slab(oy, iy, b.minY, b.maxY, 1) || !slab(oz, iz, b.minZ, b.maxZ, 2) || span.axis < 0) return -1;
-    hit.nx = span.axis === 0 ? span.sign : 0; hit.ny = span.axis === 1 ? span.sign : 0; hit.nz = span.axis === 2 ? span.sign : 0;
-    return span.t0;
-  }
-
   const probe = { nx: 0, ny: 0, nz: 0 };
-  /** First solid (or the ground) along a unit direction within maxT. Fills hit; returns t or Infinity. */
+  /** First solid or the ground along a unit direction within maxT; fills hit, returns t or Infinity. */
   function raycast(ox, oy, oz, dx, dy, dz, maxT, hit) {
     const ix = 1 / (dx || 1e-9), iy = 1 / (dy || 1e-9), iz = 1 / (dz || 1e-9);
     let best = maxT;
@@ -139,7 +138,6 @@ export function createCollision() {
   return { boxes, raycast, clearLine, moveBody };
 }
 
-/** Walkable for navigation: open floor, or a low step bots can climb. */
 export function isWalkable(c, r) {
   if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return false;
   const def = LEGEND[GRID[r][c]];

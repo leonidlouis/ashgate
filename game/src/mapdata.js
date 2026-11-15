@@ -1,9 +1,7 @@
-// Saltworks: a coastal salt refinery at golden hour, drawn as a 48 x 44 grid of 2 m cells (north is up).
-// One map string drives everything: collision boxes, the navigation grid, the meshes and the minimap.
-//   Site A, Evaporation Pans (north-west)   Site B, Pump Hall (north-east)
-//   Salt Yard (west lane)  Brine Channel (mid, long sightline through the Gate)  Conveyor Row (east lane)
-//   Short A (mid to A)  Pipe Alley (mid to B)  Underpass (Salt Yard to mid)
-//   Harbor Watch spawn D (north), Cinder Cell spawn S (south)
+// Saltworks, a salt refinery at golden hour: a 48 x 44 grid of 2 m cells, north up, driving collision,
+// navigation, meshes and minimap. Site A Evaporation Pans (NW), Site B Pump Hall (NE); lanes Salt Yard
+// (west), Brine Channel (mid, long sightline through the Gate), Conveyor Row (east); connectors Short A,
+// Pipe Alley, Underpass. Harbor Watch spawns north (D), Cinder Cell south (S).
 export const CELL = 2;
 export const COLS = 48;
 export const ROWS = 44;
@@ -55,28 +53,13 @@ export const GRID = [
   '################################################',
 ];
 
-// solid: blocks of a height; floor: walkable surface type; over: something overhead at [from, to] metres.
+// solid: block height (# wall, M warehouse, H hall, T tank, c/C crates, o barrels, k barrier, p steppable
+// pan rim); floor: walkable surface; over: lintel, roof or pipes spanning [from, to] m.
 export const LEGEND = {
-  '#': { solid: 7, mat: 'perimeter' },
-  M: { solid: 5, mat: 'building' },
-  H: { solid: 5.5, mat: 'hall' },
-  c: { solid: 1.2, mat: 'crate' },
-  C: { solid: 2.4, mat: 'crateStack' },
-  o: { solid: 1.1, mat: 'barrel' },
-  T: { solid: 6, mat: 'tank' },
-  k: { solid: 1.0, mat: 'barrier' },
-  p: { solid: 0.4, mat: 'rim', step: true },
-  '.': { floor: 'concrete' },
-  ',': { floor: 'sand' },
-  x: { floor: 'salt' },
-  A: { floor: 'siteA', site: 'A' },
-  B: { floor: 'siteB', site: 'B' },
-  ':': { floor: 'tiles' },
-  D: { floor: 'spawnDef' },
-  S: { floor: 'spawnAtk' },
-  '|': { floor: 'concrete', over: [3.1, 5], mat: 'lintel' },
-  '=': { floor: 'concrete', over: [3.3, 5], mat: 'roof' },
-  '~': { floor: 'concrete', over: [3.2, 3.7], mat: 'pipes' },
+  '#': { solid: 7 }, M: { solid: 5 }, H: { solid: 5.5 }, T: { solid: 6 }, c: { solid: 1.2 }, C: { solid: 2.4 }, o: { solid: 1.1 }, k: { solid: 1 }, p: { solid: 0.4, step: true },
+  '.': { floor: 'concrete' }, ',': { floor: 'sand' }, x: { floor: 'salt' }, ':': { floor: 'tiles' }, D: { floor: 'spawnDef' }, S: { floor: 'spawnAtk' },
+  A: { floor: 'siteA', site: 'A' }, B: { floor: 'siteB', site: 'B' },
+  '|': { floor: 'concrete', over: [3.1, 5] }, '=': { floor: 'concrete', over: [3.3, 5] }, '~': { floor: 'concrete', over: [3.2, 3.7] },
 };
 
 // Cells [col, row]. Holds carry the angle a defender watches; routes are the lanes attackers take.
@@ -86,10 +69,10 @@ export const SPOTS = {
     atk: [[18, 40], [21, 40], [24, 40], [27, 40], [30, 40]],
   },
   sites: {
-    A: { name: 'Evaporation Pans', center: [9, 6], plant: [[7, 4], [10, 7], [9, 5]],
+    A: { center: [9, 6], plant: [[7, 4], [10, 7], [9, 5]],
       holds: [[[16, 9], [19, 12]], [[13, 5], [4, 16]], [[2, 8], [8, 15]], [[12, 2], [17, 5]]],
       post: [[14, 9], [3, 9], [10, 13], [13, 2]] },
-    B: { name: 'Pump Hall', center: [39, 7], plant: [[40, 5], [37, 8], [41, 9]],
+    B: { center: [39, 7], plant: [[40, 5], [37, 8], [41, 9]],
       holds: [[[44, 7], [41, 16]], [[36, 11], [33, 16]], [[45, 13], [40, 16]], [[33, 6], [30, 3]]],
       post: [[44, 12], [35, 8], [33, 13], [45, 3]] },
   },
@@ -100,25 +83,15 @@ export const SPOTS = {
   },
 };
 
-export const ZONES = [
-  { name: 'Evaporation Pans', c0: 1, r0: 1, c1: 16, r1: 16 },
-  { name: 'Harbor Watch spawn', c0: 17, r0: 1, c1: 29, r1: 5 },
-  { name: 'Pump Hall', c0: 30, r0: 1, c1: 46, r1: 16 },
-  { name: 'Short A', c0: 17, r0: 11, c1: 20, r1: 13 },
-  { name: 'Brine Channel', c0: 21, r0: 6, c1: 26, r1: 36 },
-  { name: 'Salt Yard', c0: 1, r0: 17, c1: 8, r1: 36 },
-  { name: 'Underpass', c0: 9, r0: 29, c1: 20, r1: 30 },
-  { name: 'Pipe Alley', c0: 27, r0: 17, c1: 37, r1: 20 },
-  { name: 'Conveyor Row', c0: 38, r0: 17, c1: 46, r1: 36 },
-  { name: 'Cinder yard', c0: 1, r0: 37, c1: 46, r1: 42 },
-];
+// [name, col0, row0, col1, row1]: area names shown under the radar
+const ZONES = [['Evaporation Pans', 1, 1, 16, 16], ['Harbor Watch spawn', 17, 1, 29, 5], ['Pump Hall', 30, 1, 46, 16], ['Short A', 17, 11, 20, 13],
+  ['Brine Channel', 21, 6, 26, 36], ['Salt Yard', 1, 17, 8, 36], ['Underpass', 9, 29, 20, 30], ['Pipe Alley', 27, 17, 37, 20], ['Conveyor Row', 38, 17, 46, 36], ['Cinder yard', 1, 37, 46, 42]];
 
 export function cellX(col) { return (col - COLS / 2) * CELL + CELL / 2; }
 export function cellZ(row) { return (row - ROWS / 2) * CELL + CELL / 2; }
 export function colOf(x) { return Math.floor(x / CELL + COLS / 2); }
 export function rowOf(z) { return Math.floor(z / CELL + ROWS / 2); }
 
-/** 'A' or 'B' when the point is on a plant zone, else ''. */
 export function siteAt(x, z) {
   const c = colOf(x), r = rowOf(z);
   if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return '';
@@ -126,8 +99,7 @@ export function siteAt(x, z) {
 }
 
 export function zoneAt(x, z) {
-  const c = colOf(x);
-  const r = rowOf(z);
-  for (const zone of ZONES) if (c >= zone.c0 && c <= zone.c1 && r >= zone.r0 && r <= zone.r1) return zone.name;
+  const c = colOf(x), r = rowOf(z);
+  for (const [name, c0, r0, c1, r1] of ZONES) if (c >= c0 && c <= c1 && r >= r0 && r <= r1) return name;
   return 'Saltworks';
 }

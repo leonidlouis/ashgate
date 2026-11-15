@@ -1,6 +1,5 @@
-// Guns in the hand: timers, reloads, switching, spread and recoil, hitscan against the map and the
-// hit zones, armour, kills and rewards. The same code fires for player and bots, so a bot shooting
-// on the run sprays exactly as badly as a player would.
+// Guns: timers, reloads, switching, spread, recoil, hitscan against map and hit zones, armour,
+// kills. The same code fires for player and bots, so shooting on the run is inaccurate for both.
 import * as THREE from 'three';
 import { MOVE, SENSE, ECONOMY } from './config.js';
 import { GRENADES, GRENADE_ORDER } from './weapons.js';
@@ -57,7 +56,6 @@ export function stepWeapon(state, actor, dt, collision) {
   }
   if (actor.slot === 'grenade') { stepThrow(state, actor, dt); return; }
   const item = heldItem(actor), def = item.def;
-  // recoil and bloom recover; a pause resets the spray pattern
   const k = Math.min(1, def.recoil.recover * dt);
   gun.punchPitch -= gun.punchPitch * k;
   gun.punchYaw -= gun.punchYaw * k;
@@ -91,7 +89,7 @@ function stepThrow(state, actor, dt) {
     }
     gun.draw = 0.4;
   } else if (gun.throwing <= 0 && actor.input.fire && !gun.held && gun.draw <= 0 && actor.grenades[type] > 0) {
-    gun.throwing = 0.28; // pull the pin, then let go
+    gun.throwing = 0.28;
     state.events.emit('pin', actor);
   }
   gun.held = actor.input.fire;
@@ -121,14 +119,13 @@ function fire(state, actor, item, collision) {
   gun.shots += 1;
   gun.bloom += def.spread.bloom;
   if (def.kind === 'marksman') gun.scoped = false;
-  const e = state.events.emit('fire', actor);
-  e.weapon = def; e.x = origin.x; e.y = origin.y; e.z = origin.z;
-  if (def.kind !== 'knife') makeNoise(state, 'gun', origin.x, origin.y, origin.z, SENSE.hearGun, actor.squad);
+  state.events.emit('fire', actor, origin).weapon = def;
+  if (def.kind !== 'knife') makeNoise(state, 'gun', origin, SENSE.hearGun, actor.squad);
 }
 
-function at(e, t) { e.x = origin.x + dir.x * t; e.y = origin.y + dir.y * t; e.z = origin.z + dir.z * t; return e; }
+const point = new THREE.Vector3();
+const along = (t) => point.copy(origin).addScaledVector(dir, t);
 
-/** One bullet: the nearest of the map and every enemy hit zone along the ray. */
 function trace(state, shooter, def, collision, tracer) {
   const reach = def.reach || 120;
   const wall = collision.raycast(origin.x, origin.y, origin.z, dir.x, dir.y, dir.z, reach, mapHit);
@@ -139,12 +136,12 @@ function trace(state, shooter, def, collision, tracer) {
     if (t >= 0 && t < best) { best = t; victim = other; zone = zoneHit.zone; }
   }
   const end = Math.min(best, reach);
-  if (tracer && !def.reach) at(state.events.emit('tracer', shooter), end);
+  if (tracer && !def.reach) state.events.emit('tracer', shooter, along(end));
   if (victim) {
     applyDamage(state, victim, shooter, def.damage * Math.pow(def.range, end / 12), zone, def);
-    at(state.events.emit('blood', victim), end).flag = zone === 'head';
+    state.events.emit('blood', victim, along(end)).flag = zone === 'head';
   } else if (wall !== Infinity) {
-    const e = at(state.events.emit('impact', shooter), wall);
+    const e = state.events.emit('impact', shooter, along(wall));
     e.nx = mapHit.nx; e.ny = mapHit.ny; e.nz = mapHit.nz;
   }
 }

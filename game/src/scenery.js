@@ -1,8 +1,8 @@
-// Light and air: a low west sun with soft shadows sized to the map, sky and ground fill, warm haze,
-// a gradient sky dome with a sun glow, and the refinery beyond the walls (chimneys and
-// the sea) so every sightline ends somewhere.
+// Light and air: low west sun with soft shadows over the map, sky and ground fill, warm haze, a
+// gradient sky with sun glow, and refinery chimneys beyond the walls.
 import * as THREE from 'three';
 import { PALETTE } from './config.js';
+import { material as mat } from './textures.js';
 
 const SUN_DIR = new THREE.Vector3(-0.62, 0.36, -0.7).normalize();
 
@@ -19,7 +19,7 @@ export function buildScenery(scene, renderer) {
   sun.position.copy(SUN_DIR).multiplyScalar(90);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -62, right: 62, top: 62, bottom: -62, near: 10, far: 190 }); // just the map
+  Object.assign(sun.shadow.camera, { left: -62, right: 62, top: 62, bottom: -62, near: 10, far: 190 });
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.04;
   sun.shadow.radius = 3;
@@ -44,17 +44,13 @@ export function buildScenery(scene, renderer) {
   sky.renderOrder = -1;
   scene.add(sky);
 
-  // beyond the walls: sea to the north, sand to the south, and chimneys
-  const mat = (color, roughness = 1, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
-  const far = mat(0x9c8a7a), rust = mat(0x8a4a2c, 0.9);
+  // chimneys beyond the walls, so long sightlines end on the skyline
+  const far = mat(0x9c8a7a, 1), rust = mat(0x8a4a2c, 0.9);
   const add = (geo, m, [sx, sy, sz], [x, y, z]) => {
     const o = new THREE.Mesh(geo, m);
     o.scale.set(sx, sy, sz); o.position.set(x, y, z);
     scene.add(o);
   };
-  const flat = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
-  add(flat, mat(0x4f8790, 0.25, 0.3), [900, 1, 300], [0, -0.6, -230]);
-  add(flat, mat(0xcfae86), [900, 1, 500], [0, -0.05, 170]);
   const stack = new THREE.CylinderGeometry(1, 1.3, 1, 12);
   for (const [x, z, h, r] of [[-30, -78, 34, 2.4], [-18, -84, 26, 1.8], [40, -74, 40, 2.6], [70, -10, 22, 5], [78, 16, 18, 6], [-80, 20, 20, 5]]) {
     add(stack, far, [r, h, r], [x, h / 2, z]);

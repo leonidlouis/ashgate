@@ -1,8 +1,5 @@
-// Boot and the one loop. The simulation advances in fixed 60 Hz ticks from an accumulator; the
-// renderer draws once per display frame, blending the last two ticks. Events written by the sim are
-// drained once a frame into effects, audio and the HUD.
-// ?shot=play|buy|site|end&seed=N runs the same game deterministically to a staged moment and freezes
-// it for a screenshot (see shots.js); without it the game starts at the title screen.
+// Boot and the loop: fixed 60 Hz sim ticks from an accumulator, one interpolated render per frame,
+// sim events drained into effects, audio and HUD. ?shot=name&seed=N stages a screenshot (shots.js).
 import { TICK, MAX_STEPS_PER_FRAME } from './config.js';
 import { createState } from './state.js';
 import { createCollision } from './collision.js';
@@ -37,12 +34,11 @@ const view = createView(document.getElementById('game'), state, collision);
 const hud = createHud();
 const minimap = createMinimap(document.getElementById('minimap'));
 const audio = createAudio();
-audio.setVolume(settings.volume);
 const input = createInput(document.querySelector('#game canvas'), onLockChange);
 const controller = createPlayerController(input, settings);
 const screens = createScreens(state, {
   settings,
-  saveSettings() { saveSettings(settings); state.difficulty = settings.difficulty; audio.setVolume(settings.volume); },
+  saveSettings() { saveSettings(settings); state.difficulty = settings.difficulty; },
   play,
   restart,
   ui: () => audio.ui(),
@@ -52,7 +48,7 @@ let mode = 'title'; // title | playing | paused | over | shot
 let accumulator = 0;
 let last = performance.now();
 const noLook = { x: 0, y: 0 };
-const frameInfo = { viewer: state.player, fov: 74, height: 720, onSite: false, shot: !!shot }; // reused every frame
+const frameInfo = { viewer: state.player, fov: 74, height: 720, onSite: false, shot: !!shot };
 
 function play() {
   audio.unlock();
@@ -81,7 +77,7 @@ function onLockChange(locked) {
   }
 }
 
-/** Whose eyes the camera uses: yours, or a living squadmate's once you are down. */
+// the camera rides your eyes, or a living squadmate's once you are down
 function viewerOf() {
   const me = state.player;
   if (me.alive || state.round.phase === 'freeze') return me;
@@ -92,10 +88,8 @@ function viewerOf() {
 function handlePresses() {
   const pressed = input.state.pressed;
   for (const code of pressed) {
-    if (code === 'KeyB') {
-      if (screens.buyOpen) { screens.setBuy(false); input.lock(); } else if (screens.setBuy(true)) input.unlock();
-    } else if (code === 'Escape' && screens.buyOpen) {
-      screens.setBuy(false); input.lock();
+    if (screens.buyOpen && (code === 'KeyB' || code === 'Escape')) { screens.setBuy(false); input.lock(); } else if (code === 'KeyB') {
+      if (screens.setBuy(true)) input.unlock();
     } else if (code === 'Tab') screens.showBoard(true);
     else if (code === 'TabUp') screens.showBoard(false);
     else if (screens.buyOpen && /^Digit\d$/.test(code)) screens.buyByIndex((+code.slice(5) + 9) % 10);

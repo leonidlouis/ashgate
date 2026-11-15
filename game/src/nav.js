@@ -1,5 +1,5 @@
-// Bot navigation: A* over the 2 m walkable cells of the map (8-way, no corner cutting, a penalty
-// for hugging walls), then string-pulled into a few straight legs. Typed arrays, reused per search.
+// Bot navigation: A* over walkable 2 m cells (8-way, no corner cutting, wall penalty), then
+// string-pulled into straight legs. Typed arrays reused per search.
 import { COLS, ROWS, CELL, cellX, cellZ, colOf, rowOf } from './mapdata.js';
 import { isWalkable } from './collision.js';
 

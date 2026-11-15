@@ -1,7 +1,5 @@
-// The round rules: freeze and buy, the live round, planting the charge (hold E on a site), its 40 s
-// fuse with a quickening beep, defusing (5 s, 3 s with a kit), and every way a round ends:
-// elimination, detonation, defuse, or the clock. Then pay, crown an MVP, swap sides at the half,
-// end the match at seven.
+// Round rules: freeze/buy, live round, plant (hold E), 40 s fuse, defuse (5 s, 3 s with kit), wins
+// by elimination, detonation, defuse or time; pay, MVP, half-time swap, match end at seven.
 import { ROUND, ECONOMY, ROUNDS_TO_WIN, HALF_LENGTH, SENSE } from './config.js';
 import { SPOTS, cellX, cellZ, siteAt } from './mapdata.js';
 import { WEAPONS } from './weapons.js';
@@ -12,7 +10,6 @@ import { clearGrenades } from './grenades.js';
 import { applyDamage } from './combat.js';
 
 const BLAST = { name: 'Charge', head: 1, body: 1, legs: 1, pen: 1, reward: 0 };
-const at = (e, p) => { e.x = p.x; e.y = p.y; e.z = p.z; return e; };
 
 function stripGear(a) {
   a.primary = null; a.armor = 0; a.helmet = a.kit = false;
@@ -54,7 +51,7 @@ export function startRound(state) {
     Object.assign(a.gun, { cooldown: 0, reload: 0, draw: 0, bloom: 0, shots: 0, punchPitch: 0, punchYaw: 0, scoped: false, throwing: 0 });
     if (a.bot) { Object.assign(a.bot, { throwType: '', coverUntil: -99, mode: 'task' }); a.bot.mem.target = null; a.bot.mem.heardAt = -99; }
   }
-  const atk = squadOnSide(state, 'atk'); // the charge goes to a random attacking bot
+  const atk = squadOnSide(state, 'atk');
   Object.assign(c, { state: 'carried', carrier: state.rng.pick(state.actors.filter((a) => a.squad === atk && a.bot)), site: '', fuse: 0, progress: 0, planter: null, defuser: null, beep: 0 });
   planRound(state);
   state.events.emit('roundStart');
@@ -92,13 +89,13 @@ export function stepRound(state, dt) {
   c.fuse -= dt;
   if ((c.beep -= dt) <= 0) {
     c.beep = Math.max(0.12, 1.1 * (c.fuse / ROUND.fuse) + 0.06);
-    at(state.events.emit('beep'), c.pos);
+    state.events.emit('beep', null, c.pos);
   }
   stepDefuse(state, dt);
   if (c.state === 'defused') { endRound(state, 'def', 'defuse'); return; }
   if (c.fuse <= 0) {
     c.state = 'detonated';
-    at(state.events.emit('detonate'), c.pos);
+    state.events.emit('detonate', null, c.pos);
     for (const a of state.actors) {
       const d = a.pos.distanceTo(c.pos);
       if (a.alive && d < 22) applyDamage(state, a, null, 420 * (1 - d / 22) + (d < 10 ? 100 : 0), 'blast', BLAST);
@@ -127,8 +124,8 @@ function stepCarry(state, dt) {
   c.pos.set(a.pos.x, a.pos.y + 0.02, a.pos.z);
   a.money += ECONOMY.plantReward;
   state.round.phase = 'planted';
-  at(state.events.emit('planted', a), c.pos);
-  makeNoise(state, 'charge', c.pos.x, c.pos.y, c.pos.z, 60, a.squad);
+  state.events.emit('planted', a, c.pos);
+  makeNoise(state, 'charge', c.pos, 60, a.squad);
 }
 
 function stepDefuse(state, dt) {
@@ -141,7 +138,7 @@ function stepDefuse(state, dt) {
   if (c.defuser !== user) {
     c.defuser = user; c.progress = 0;
     state.events.emit('defusing', user);
-    makeNoise(state, 'charge', c.pos.x, c.pos.y, c.pos.z, SENSE.hearUtility, user.squad);
+    makeNoise(state, 'charge', c.pos, SENSE.hearUtility, user.squad);
   }
   if ((c.progress += dt / (user.kit ? ROUND.defuseKit : ROUND.defuse)) >= 1) {
     c.state = 'defused';

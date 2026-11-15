@@ -1,25 +1,11 @@
-// Everything that flashes, flies or lingers, from fixed pools made once: tracers, sparks and blood
-// (one Points cloud), bullet holes, smoke puffs following the sim's smoke volumes, blast flashes,
-// grenades in flight and the charge with its beacon. Fed by sim events; nothing allocates per frame.
+// Pooled visuals fed by sim events: tracers, sparks and blood (one Points cloud), bullet holes,
+// smoke puffs, blasts, grenades in flight and the charge beacon. Nothing allocates per frame.
 import * as THREE from 'three';
+import { softTexture, material } from './textures.js';
 
 const PARTICLES = 384;
 const tmp = new THREE.Vector3();
 const tmp2 = new THREE.Vector3();
-
-function softTexture(inner, outer) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 64;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grad.addColorStop(0, inner);
-  grad.addColorStop(1, outer);
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 64, 64);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
 
 export function createEffects(scene) {
   const pool = (n, make) => Array.from({ length: n }, () => { const o = make(); o.visible = false; o.userData.life = 0; scene.add(o); return o; });
@@ -34,16 +20,16 @@ export function createEffects(scene) {
   const blastTex = softTexture('rgba(255,240,200,1)', 'rgba(255,120,30,0)');
   const blasts = pool(4, () => new THREE.Sprite(new THREE.SpriteMaterial({ map: blastTex, ...additive })));
   const nadeGeo = new THREE.SphereGeometry(0.07, 8, 6);
-  const nadeMat = new THREE.MeshStandardMaterial({ color: 0x3d4a33, roughness: 0.6 });
+  const nadeMat = material(0x3d4a33, 0.6);
   const nades = pool(12, () => new THREE.Mesh(nadeGeo, nadeMat));
   // three point lights always present, dark until needed, so shaders never recompile
   const blastLight = new THREE.PointLight(0xffa850, 0, 30, 2);
   const muzzleLight = new THREE.PointLight(0xffc070, 0, 9, 2);
   const chargeLight = new THREE.PointLight(0xff3010, 0, 6, 2);
   scene.add(blastLight, muzzleLight, chargeLight);
-  let tracerHead = 0, holeHead = 0, blastHead = 0, particleHead = 0, beaconTime = 0;
+  let particleHead = 0, beaconTime = 0;
+  const next = (list) => list[list.head = ((list.head || 0) + 1) % list.length];
 
-  // sparks, dust and blood share one point cloud
   const pos = new Float32Array(PARTICLES * 3).fill(-999);
   const col = new Float32Array(PARTICLES * 3);
   const vel = new Float32Array(PARTICLES * 3);
@@ -68,9 +54,8 @@ export function createEffects(scene) {
 
   // the charge: a strapped box with a beacon that flashes on every beep
   const charge = new THREE.Group();
-  const mat = (color, emissive = 0, glow = 0) => new THREE.MeshStandardMaterial({ color, roughness: 0.65, emissive, emissiveIntensity: glow });
-  const beaconMat = mat(0x400808, 0xff2a10);
-  for (const [w, h, d, x, y, m] of [[0.42, 0.16, 0.3, 0, 0.08, mat(0x3b3229)], [0.44, 0.17, 0.06, 0, 0.08, mat(0xf07a2a)], [0.08, 0.06, 0.08, 0.1, 0.19, beaconMat], [0.16, 0.02, 0.1, -0.08, 0.165, mat(0x102010, 0x40ff60, 0.8)]]) {
+  const beaconMat = material(0x400808, 0.65, 0, 0xff2a10).clone();
+  for (const [w, h, d, x, y, m] of [[0.42, 0.16, 0.3, 0, 0.08, material(0x3b3229, 0.65)], [0.44, 0.17, 0.06, 0, 0.08, material(0xf07a2a, 0.65)], [0.08, 0.06, 0.08, 0.1, 0.19, beaconMat], [0.16, 0.02, 0.1, -0.08, 0.165, material(0x102010, 0.65, 0, 0x40ff60, 0.8)]]) {
     const part = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
     part.position.set(x, y, 0);
     part.castShadow = true;
@@ -80,8 +65,7 @@ export function createEffects(scene) {
   scene.add(charge);
 
   function tracer(from, x, y, z) {
-    const m = tracers[tracerHead];
-    tracerHead = (tracerHead + 1) % tracers.length;
+    const m = next(tracers);
     m.position.copy(from);
     m.lookAt(tmp.set(x, y, z));
     m.scale.set(1, 1, tmp.distanceTo(from));
@@ -90,8 +74,7 @@ export function createEffects(scene) {
   }
 
   function blast(x, y, z, size, duration, light) {
-    const sp = blasts[blastHead];
-    blastHead = (blastHead + 1) % blasts.length;
+    const sp = next(blasts);
     sp.position.set(x, y + 0.5, z);
     Object.assign(sp.userData, { life: duration, max: duration, size });
     sp.visible = true;
@@ -99,7 +82,6 @@ export function createEffects(scene) {
     blastLight.intensity = light;
   }
 
-  /** Where a shot leaves the gun: your view-model muzzle, or in front of a bot's chest. */
   function muzzleOf(actor, camera, out) {
     if (actor.isPlayer) return out.set(0.16, -0.14, -0.75).applyMatrix4(camera.matrixWorld);
     const s = Math.sin(actor.yaw), c = Math.cos(actor.yaw);
@@ -120,8 +102,7 @@ export function createEffects(scene) {
         muzzleLight.intensity = e.actor.isPlayer ? 6 : 4;
         break;
       case 'impact': {
-        const m = holes[holeHead];
-        holeHead = (holeHead + 1) % holes.length;
+        const m = next(holes);
         m.position.set(e.x + e.nx * 0.012, e.y + e.ny * 0.012, e.z + e.nz * 0.012);
         m.lookAt(tmp.set(e.x + e.nx, e.y + e.ny, e.z + e.nz));
         m.visible = true;
@@ -166,7 +147,6 @@ export function createEffects(scene) {
     }
     blastLight.intensity = Math.max(0, blastLight.intensity - dt * 200);
     muzzleLight.intensity = Math.max(0, muzzleLight.intensity - dt * 120);
-    // 14 puffs per smoke in three rings, swirling slowly
     for (let p = 0; p < puffs.length; p += 1) {
       const s = state.smokes[(p / 14) | 0], sp = puffs[p];
       sp.visible = s.active && s.radius > 0.2;

@@ -1,7 +1,5 @@
-// Screenshot mode: the real match, seeded, fast-forwarded through the real simulation to a staged
-// moment, then frozen. In the action shots your soldier is driven by a bot brain (autopilot), so
-// every frame is one the game produced; staging sets the round, score and money, and places the
-// survivors of a naturally played opening where the fight should happen.
+// Screenshot staging: a seeded real match, fast-forwarded through the real sim to a staged moment
+// with your seat on autopilot, then frozen. Loaded only with ?shot=.
 import { createBrain, assignTask } from './brain.js';
 import { startRound } from './rounds.js';
 import { buy } from './economy.js';
@@ -99,7 +97,7 @@ const SCENES = {
     runUntil(api, () => false, 60 * 4);
     assignTask(me.bot, [], null, 'defuse');
     runUntil(api, () => c.defuser === me && c.progress > 0.55, 60 * 30);
-    me.pitch = -0.5; // eyes on the charge, the hall beyond
+    me.pitch = -0.5;
     me.yaw = Math.atan2(me.pos.x - c.pos.x, me.pos.z - c.pos.z);
   },
   // a whole match played bot against bot, your seat on autopilot, to the final summary

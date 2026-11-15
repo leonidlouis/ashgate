@@ -1,6 +1,5 @@
-// One fixed 60 Hz tick of the match, in a fixed order: minds, bodies, guns, grenades, rules, plans.
-// Nothing here touches the renderer, the DOM or the clock on the wall; given the same seed and
-// the same player inputs, a match replays exactly.
+// One fixed 60 Hz tick in a fixed order: minds, bodies, guns, grenades, rules, plans. No DOM, no
+// renderer, no wall clock: a seed plus inputs replays a match exactly.
 import { TICK } from './config.js';
 import { stepBot } from './brain.js';
 import { stepMovement } from './movement.js';

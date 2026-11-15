@@ -1,9 +1,8 @@
-// Soldiers that read at forty metres: blocky low-poly bodies with plate carriers in the side's
-// colour, Cinder Cell in hoods and amber goggles, Harbor Watch in helmets and visors. Legs swing
-// with ground speed, knees fold in a crouch, the torso follows the aim, and the dead topple.
+// Low-poly soldiers in side colours (Cinder hoods and goggles, Harbor helmets and visors) with a
+// walk cycle, crouch, aim pitch and a death topple.
 import * as THREE from 'three';
 import { SIDES } from './config.js';
-import { signTexture } from './textures.js';
+import { signTexture, material } from './textures.js';
 
 const box = new THREE.BoxGeometry(1, 1, 1);
 const LOOKS = {
@@ -11,22 +10,21 @@ const LOOKS = {
   def: { armor: SIDES.def.color, cloth: 0x22313d, trim: 0x16222b, gear: 0xd8f3f6, glow: 0x0b3a40 },
 };
 const SKINS = [0xc58c64, 0x8d5a3b, 0xe0b090, 0x6b4630, 0xb07850];
-const cache = {};
-const mat = (color, rough = 0.8, metal = 0, emissive = 0) => (cache[`${color}${rough}${emissive}`] ||= new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, emissive, emissiveIntensity: emissive ? 1.2 : 0 }));
+const mat = (color, rough = 0.8, metal = 0, emissive = 0) => material(color, rough, metal, emissive, emissive ? 1.2 : 0);
 const GUN = mat(0x2a2b2c, 0.5, 0.6);
 
-// [pivot, role, size, position]; role picks the material, 'hood'/'helmet' parts show per side
+// 'pivot role sx sy sz x y z' in centimetres; role picks the material, ':atk'/':def' parts show for one side
 const BODY = [
-  ['torso', 'cloth', [0.42, 0.56, 0.24], [0, 0.3, 0]], ['torso', 'armor', [0.48, 0.42, 0.32], [0, 0.36, 0]],
-  ['torso', 'trim', [0.36, 0.12, 0.1], [0, 0.22, -0.19]], ['torso', 'trim', [0.34, 0.36, 0.16], [0, 0.34, 0.24]],
-  ['neck', 'skin', [0.22, 0.25, 0.24], [0, 0.12, 0]], ['neck', 'cloth:atk', [0.27, 0.22, 0.28], [0, 0.18, 0.02]],
-  ['neck', 'gear:atk', [0.24, 0.07, 0.06], [0, 0.15, -0.13]], ['neck', 'armor:def', [0.29, 0.13, 0.3], [0, 0.27, 0.01]],
-  ['neck', 'gear:def', [0.25, 0.08, 0.05], [0, 0.16, -0.14]],
-  ['rArm', 'cloth', [0.12, 0.12, 0.34], [0, -0.08, -0.14]], ['rArm', 'skin', [0.09, 0.09, 0.12], [-0.05, -0.12, -0.34]],
-  ['lArm', 'cloth', [0.12, 0.12, 0.4], [0.06, -0.06, -0.2]], ['lArm', 'skin', [0.09, 0.09, 0.12], [0.12, -0.06, -0.44]],
-  ['gun', 'gun', [0.07, 0.1, 0.8], [0, 0, -0.2]], ['gun', 'gun', [0.05, 0.16, 0.08], [0, -0.1, -0.05]],
-  ['thigh0', 'cloth', [0.17, 0.48, 0.19], [0, -0.24, 0]], ['knee0', 'cloth', [0.15, 0.44, 0.17], [0, -0.22, 0]], ['knee0', 'trim', [0.16, 0.1, 0.27], [0, -0.43, -0.04]],
-  ['thigh1', 'cloth', [0.17, 0.48, 0.19], [0, -0.24, 0]], ['knee1', 'cloth', [0.15, 0.44, 0.17], [0, -0.22, 0]], ['knee1', 'trim', [0.16, 0.1, 0.27], [0, -0.43, -0.04]],
+  'torso cloth 42 56 24 0 30 0', 'torso armor 48 42 32 0 36 0',
+  'torso trim 36 12 10 0 22 -19', 'torso trim 34 36 16 0 34 24',
+  'neck skin 22 25 24 0 12 0', 'neck cloth:atk 27 22 28 0 18 2',
+  'neck gear:atk 24 7 6 0 15 -13', 'neck armor:def 29 13 30 0 27 1',
+  'neck gear:def 25 8 5 0 16 -14',
+  'rArm cloth 12 12 34 0 -8 -14', 'rArm skin 9 9 12 -5 -12 -34',
+  'lArm cloth 12 12 40 6 -6 -20', 'lArm skin 9 9 12 12 -6 -44',
+  'gun gun 7 10 80 0 0 -20', 'gun gun 5 16 8 0 -10 -5',
+  'thigh0 cloth 17 48 19 0 -24 0', 'knee0 cloth 15 44 17 0 -22 0', 'knee0 trim 16 10 27 0 -43 -4',
+  'thigh1 cloth 17 48 19 0 -24 0', 'knee1 cloth 15 44 17 0 -22 0', 'knee1 trim 16 10 27 0 -43 -4',
 ];
 
 export function createSoldier(actor) {
@@ -35,7 +33,8 @@ export function createSoldier(actor) {
   const hips = pivot(root, 0, 0.95, 0), torso = pivot(hips, 0, 0, 0), neck = pivot(torso, 0, 0.62, 0), arms = pivot(torso, 0, 0.48, 0);
   const p = { torso, neck, arms, rArm: pivot(arms, 0.25, 0, 0), lArm: pivot(arms, -0.25, 0, 0), gun: pivot(arms, 0.08, -0.1, -0.3) };
   for (const i of [0, 1]) { p['thigh' + i] = pivot(hips, (i ? 1 : -1) * 0.12, 0, 0); p['knee' + i] = pivot(p['thigh' + i], 0, -0.48, 0); }
-  const parts = BODY.map(([where, role, [w, h, d], [x, y, z]]) => {
+  const parts = BODY.map((line) => {
+    const [where, role, ...n] = line.split(' '), [w, h, d, x, y, z] = n.map((v) => v / 100);
     const m = new THREE.Mesh(box, role === 'skin' ? mat(SKINS[actor.id % 5], 0.7) : GUN);
     m.scale.set(w, h, d); m.position.set(x, y, z);
     m.castShadow = true;
@@ -61,7 +60,6 @@ export function createSoldier(actor) {
     }
   }
 
-  /** Pose for this frame; alpha blends the last two sim ticks. */
   function update(actor, sideName, alpha, dt, time, friendly) {
     setSide(sideName);
     if (!actor.alive && deadAt < 0) deadAt = time;

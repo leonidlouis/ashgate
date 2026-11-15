@@ -1,6 +1,5 @@
-// Thrown utility: a fixed pool of grenades flying ballistic arcs that bounce off the map, then a
-// frag blast with falloff behind cover, a smoke volume that blocks sight, or a flash that blinds by
-// how squarely each soldier was looking at it.
+// Thrown utility: pooled grenades on bouncing ballistic arcs, frag falloff behind cover, smoke
+// volumes that block sight, flashes that blind by viewing angle.
 import * as THREE from 'three';
 import { SENSE } from './config.js';
 import { applyDamage } from './combat.js';
@@ -15,7 +14,7 @@ const look = new THREE.Vector3();
 
 export function initGrenades(state) {
   for (let i = 0; i < 12; i += 1) {
-    state.grenades.push({ active: false, def: null, owner: null, pos: new THREE.Vector3(), prev: new THREE.Vector3(), vel: new THREE.Vector3(), fuse: 0, spin: 0 });
+    state.grenades.push({ active: false, def: null, owner: null, pos: new THREE.Vector3(), prev: new THREE.Vector3(), vel: new THREE.Vector3(), fuse: 0 });
   }
   for (let i = 0; i < 4; i += 1) state.smokes.push({ active: false, pos: new THREE.Vector3(), radius: 0, life: 0, max: 0 });
 }
@@ -29,12 +28,11 @@ export function throwGrenade(state, actor, def, from, dir) {
   const g = state.grenades.find((item) => !item.active);
   if (!g) return;
   const power = actor.input.walk || actor.crouch > 0.5 ? 9 : 15;
-  g.active = true; g.def = def; g.owner = actor; g.fuse = def.fuse; g.spin = 0;
+  g.active = true; g.def = def; g.owner = actor; g.fuse = def.fuse;
   g.pos.copy(from).addScaledVector(dir, 0.4);
   g.prev.copy(g.pos);
   g.vel.copy(dir).multiplyScalar(power).add(actor.vel);
-  const e = state.events.emit('throw', actor);
-  e.weapon = def;
+  state.events.emit('throw', actor).weapon = def;
 }
 
 export function stepGrenades(state, dt, collision) {
@@ -44,44 +42,38 @@ export function stepGrenades(state, dt, collision) {
     g.vel.y -= GRAVITY * dt;
     const speed = g.vel.length();
     if (speed > 1e-4) {
-      const travel = speed * dt;
-      const t = collision.raycast(g.pos.x, g.pos.y, g.pos.z, g.vel.x / speed, g.vel.y / speed, g.vel.z / speed, travel + 0.06, hit);
-      if (t !== Infinity) {
+      const t = collision.raycast(g.pos.x, g.pos.y, g.pos.z, g.vel.x / speed, g.vel.y / speed, g.vel.z / speed, speed * dt + 0.06, hit);
+      if (t === Infinity) g.pos.addScaledVector(g.vel, dt);
+      else { // bounce: reflect off the face, losing energy
         g.pos.addScaledVector(g.vel, Math.max(0, t - 0.06) / speed);
         const vn = g.vel.x * hit.nx + g.vel.y * hit.ny + g.vel.z * hit.nz;
         g.vel.x -= 1.45 * vn * hit.nx; g.vel.y -= 1.45 * vn * hit.ny; g.vel.z -= 1.45 * vn * hit.nz;
         g.vel.multiplyScalar(0.7);
         if (speed > 2.5) {
-          const e = state.events.emit('bounce', g.owner);
-          e.x = g.pos.x; e.y = g.pos.y; e.z = g.pos.z;
-          makeNoise(state, 'utility', g.pos.x, g.pos.y, g.pos.z, SENSE.hearStep, g.owner.squad);
+          state.events.emit('bounce', g.owner, g.pos);
+          makeNoise(state, 'utility', g.pos, SENSE.hearStep, g.owner.squad);
         }
-      } else {
-        g.pos.addScaledVector(g.vel, dt);
       }
     }
-    g.spin += speed * dt * 3;
     g.fuse -= dt;
     if (g.fuse <= 0 || (g.def.id === 'smoke' && speed < 0.4 && g.fuse < g.def.fuse - 0.5)) detonate(state, g, collision);
   }
   for (const s of state.smokes) {
     if (!s.active) continue;
-    s.life -= dt;
-    const age = s.max - s.life;
-    s.radius = s.max === 0 ? 0 : Math.min(1, age / 1.6) * 4.6 * (s.life < 2 ? s.life / 2 : 1);
-    if (s.life <= 0) s.active = false;
+    s.life -= dt; // billows out over 1.6 s, thins over the last 2
+    s.radius = Math.min(1, (s.max - s.life) / 1.6) * 4.6 * Math.min(1, s.life / 2);
+    s.active = s.life > 0;
   }
 }
 
 function detonate(state, g, collision) {
   g.active = false;
   const p = g.pos;
-  const e = state.events.emit(g.def.id, g.owner);
-  e.x = p.x; e.y = p.y; e.z = p.z;
-  makeNoise(state, 'utility', p.x, p.y, p.z, SENSE.hearUtility, g.owner.squad);
+  state.events.emit(g.def.id, g.owner, p);
+  makeNoise(state, 'utility', p, SENSE.hearUtility, g.owner.squad);
   if (g.def.id === 'smoke') {
     const s = state.smokes.find((item) => !item.active) ?? state.smokes[0];
-    s.active = true; s.pos.set(p.x, Math.max(0.2, p.y), p.z); s.life = g.def.duration; s.max = g.def.duration; s.radius = 0;
+    s.active = true; s.pos.set(p.x, Math.max(0.2, p.y), p.z); s.life = s.max = g.def.duration; s.radius = 0;
     return;
   }
   for (const a of state.actors) {
@@ -98,12 +90,11 @@ function detonate(state, g, collision) {
       const facing = (look.x * (p.x - eye.x) + look.y * (p.y - eye.y) + look.z * (p.z - eye.z)) / Math.max(d, 0.01);
       const strength = (1 - d / g.def.radius) * (facing > 0.5 ? 1 : facing > 0 ? 0.55 : 0.18);
       const seconds = 0.4 + strength * 4.2;
-      if (seconds > a.blind) { a.blind = seconds; a.blindMax = seconds; }
+      if (seconds > a.blind) a.blind = a.blindMax = seconds;
     }
   }
 }
 
-/** True when a smoke volume sits across the segment a-b. */
 export function smokeBlocks(state, ax, ay, az, bx, by, bz) {
   for (const s of state.smokes) {
     if (!s.active || s.radius < 0.8) continue;

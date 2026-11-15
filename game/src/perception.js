@@ -1,6 +1,5 @@
-// What a soldier knows: enemies inside the view cone with a clear line to head or chest (walls and
-// smoke block it, a flash blinds it), and the nearest recent enemy sound in earshot. Sightings also
-// mark the enemy on the other squad's minimap and feed the squad's shared intel.
+// What a soldier knows: enemies in the view cone with clear sight of head or chest (walls, smoke,
+// flashes count) and the nearest enemy sound in earshot; sightings feed squad intel and the radar.
 import * as THREE from 'three';
 import { SENSE } from './config.js';
 import { eyeOf, bodyHeight } from './actors.js';
@@ -12,18 +11,17 @@ export function createMemory() {
   return { target: null, seenAt: -99, noticedAt: -99, lastX: 0, lastY: 0, lastZ: 0, heardAt: -99, heardX: 0, heardZ: 0, heardKind: '', checkedNoise: -99 };
 }
 
-export function canSee(state, viewer, other, collision) {
+function canSee(state, viewer, other, collision) {
   if (viewer.blind > 0.6) return false;
   eyeOf(viewer, eye);
   const dx = other.pos.x - eye.x, dz = other.pos.z - eye.z, dist = Math.hypot(dx, dz);
   if (dist > 90 || (dist > SENSE.nearAware && (-Math.sin(viewer.yaw) * dx - Math.cos(viewer.yaw) * dz) / dist < SENSE.fov)) return false;
-  const h = bodyHeight(other); // head, then chest
+  const h = bodyHeight(other);
   return sightTo(state, other, other.pos.y + h - 0.15, collision) || sightTo(state, other, other.pos.y + h * 0.6, collision);
 }
 
 const sightTo = (state, o, y, collision) => collision.clearLine(eye.x, eye.y, eye.z, o.pos.x, y, o.pos.z) && !smokeBlocks(state, eye.x, eye.y, eye.z, o.pos.x, y, o.pos.z);
 
-/** Refreshes one soldier's memory; returns the nearest visible enemy or null. */
 export function perceive(state, actor, memory, intel, collision) {
   let best = null, bestScore = Infinity;
   for (const other of state.actors) {

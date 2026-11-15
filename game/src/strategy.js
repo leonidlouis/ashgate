@@ -1,7 +1,5 @@
-// The squad leaders. At round start attackers pick a site and a style (rush one lane, split two,
-// or a slow default that stages at the lane mouths and executes late) and defenders spread over
-// anchor holds on both sites and mid. During the round: execute on contact, rotate defenders to
-// where attackers were seen, fetch a dropped charge, crossfire after the plant, retake and defuse.
+// Squad leaders: attackers pick a site and a style (rush, split, staged default), defenders anchor
+// holds; then execute, rotate, fetch the charge, crossfire after the plant, retake and defuse.
 import { SPOTS, cellX, cellZ } from './mapdata.js';
 import { assignTask, planThrow } from './brain.js';
 import { squadOnSide } from './state.js';
@@ -29,7 +27,7 @@ export function planRound(state) {
     assignTask(a.bot, SPOTS.routes[site][style === 'rush' ? rushLane : lanes[i % lanes.length]], [SPOTS.sites[site].post[i % 4], SPOTS.sites[site].center], carrier ? 'plant' : '', { wait: !plan.released });
     if (carrier) setPlant(state, a, site);
   });
-  // defenders: anchors drawn from the hold spots, two on one site, one on the other, one mid, one spare
+  // defender anchors: two on one site, one on the other, one mid, one spare
   const holds = [];
   const draw = (list, n) => { const copy = list.slice(); for (let i = 0; i < n; i += 1) holds.push(copy.splice(rng.int(copy.length), 1)[0]); };
   const heavy = rng.chance(0.5) ? 'A' : 'B', light = heavy === 'A' ? 'B' : 'A';
@@ -42,7 +40,6 @@ function setPlant(state, actor, site) {
   actor.bot.plant = { x: cellX(p[0]), z: cellZ(p[1]) };
 }
 
-/** Twice a second during the live round. */
 export function stepStrategy(state) {
   const plan = state.round.plan, c = state.charge;
   if (!plan || state.round.phase === 'freeze' || state.round.phase === 'idle') return;
@@ -50,7 +47,7 @@ export function stepStrategy(state) {
   const attackers = bots(state, atk), defenders = bots(state, def);
   const site = SPOTS.sites[plan.site];
 
-  // attackers execute on the clock, on first contact, or when the round runs late; one smokes a hold
+  // execute on the clock, on contact, or late in the round; one attacker smokes a hold
   if (!plan.released && (state.round.clock < plan.executeAt || state.time - state.intel[atk].time < 1.5 || state.round.clock < 40)) {
     plan.released = true;
     for (const a of attackers) a.bot.released = true;
@@ -67,7 +64,7 @@ export function stepStrategy(state) {
     setPlant(state, c.carrier, plan.site);
   }
   if (c.state !== 'planted') {
-    // defenders rotate toward a site once attackers are seen near it
+    // rotate toward a site where attackers were seen
     const intel = state.intel[def];
     if (plan.rotatedTo || state.time - intel.time > 2) return;
     for (const key of ['A', 'B']) {
@@ -84,7 +81,7 @@ export function stepStrategy(state) {
     plan.postPlant = true;
     attackers.forEach((a, i) => assignTask(a.bot, [], [spots.post[i % 4], spots.center, i % 2 === 1], '', { anchored: true }));
   }
-  if (plan.retake && !defenders.some((a) => a.bot.objective === 'defuse')) plan.retake = false; // the defuser fell: send another
+  if (plan.retake && !defenders.some((a) => a.bot.objective === 'defuse')) plan.retake = false;
   if (!plan.retake) { // the nearest defender defuses, the rest retake through the hold spots
     plan.retake = true;
     const defuser = nearest(defenders, c.pos);

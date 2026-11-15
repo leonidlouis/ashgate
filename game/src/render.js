@@ -1,6 +1,5 @@
-// Drawing a frame: the camera rides the viewer's eyes (interpolated between the last two ticks,
-// kicked by the view share of recoil, zoomed by a scope), soldiers are posed, effects advance, then
-// the world and the view model are drawn in two passes.
+// A frame: camera on the viewer's eyes (interpolated, recoil kick, scope zoom), soldiers posed,
+// effects advanced, then world and view model in two passes.
 import * as THREE from 'three';
 import { heldItem, eyeHeight } from './actors.js';
 import { sideOf } from './state.js';
@@ -29,14 +28,7 @@ export function createView(container, state, collision) {
   });
   const effects = createEffects(scene);
   const vm = createViewModel(camera.aspect);
-  const vmInfo = { kind: 'pistol', side: 'atk', speed: 0, onGround: true, crouch: 0, reload: 0, reloadTotal: 0, draw: 0, throwing: 0, lookX: 0, lookY: 0, punch: 0, scoped: false };
   let fov = BASE_FOV;
-
-  function kindOf(actor) {
-    if (actor.slot === 'grenade') return actor.grenadeType;
-    const item = heldItem(actor);
-    return item.def.kind;
-  }
 
   function placeCamera(viewer, alpha) {
     const own = viewer.isPlayer && !viewer.bot;
@@ -63,19 +55,10 @@ export function createView(container, state, collision) {
     for (let i = 0; i < soldiers.length; i += 1) {
       const a = state.actors[i];
       soldiers[i].update(a, sideOf(state, a), alpha, dt, state.time, a.squad === mySquad);
-      soldiers[i].root.visible = a !== viewer; // your own body stays out of your eyes
+      soldiers[i].root.visible = a !== viewer;
     }
     effects.update(state, dt, alpha);
-    const item = heldItem(viewer);
-    vmInfo.kind = kindOf(viewer);
-    vmInfo.side = sideOf(state, viewer);
-    vmInfo.speed = viewer.speed; vmInfo.onGround = viewer.onGround; vmInfo.crouch = viewer.crouch;
-    vmInfo.reload = viewer.gun.reload; vmInfo.reloadTotal = item ? item.def.reload : 0;
-    vmInfo.draw = Math.max(viewer.gun.draw, viewer.input.use && viewer.speed < 1 ? 0.3 : 0); // hands drop while planting or defusing vmInfo.throwing = viewer.gun.throwing;
-    vmInfo.lookX = look.x; vmInfo.lookY = look.y;
-    vmInfo.punch = viewer.gun.punchPitch;
-    vmInfo.scoped = viewer.gun.scoped || !viewer.alive;
-    vm.update(vmInfo, dt);
+    vm.update(viewer, sideOf(state, viewer), look, dt);
     renderer.autoClear = true;
     renderer.render(scene, camera);
     renderer.autoClear = false;
@@ -95,7 +78,6 @@ export function createView(container, state, collision) {
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  /** Advance effects without drawing (used while fast-forwarding a screenshot). */
   function age(state, dt) { effects.update(state, dt, 1); vm.settle(); }
 
   return { prepare, draw, handle, age, resize, clear: effects.clear, camera, get fov() { return fov; } };

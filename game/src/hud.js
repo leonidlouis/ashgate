@@ -1,7 +1,5 @@
-// The heads-up display. Reads the state once a frame and touches the DOM only where a value
-// changed: health, armour, money, ammo, slots, the clock (amber in freeze, red once the charge is
-// down), scores with alive pips, the killfeed, a crosshair that opens with the real spread, hit and
-// headshot markers, damage arcs, plant/defuse progress, flash and scope overlays, round banners.
+// The HUD, written only where a value changed: vitals, ammo, clock, scores and pips, killfeed,
+// spread-sized crosshair, hit markers, damage arcs, plant/defuse bar, overlays, round banner.
 import { SIDES } from './config.js';
 import { sideOf } from './state.js';
 import { heldItem } from './actors.js';
@@ -88,7 +86,6 @@ export function createHud() {
       });
     }
 
-    // vitals and arms of whoever the camera rides
     text(el['money-value'], me.money.toLocaleString('en-US'));
     text(el.hp, String(who.hp));
     text(el.ap, String(Math.round(who.armor)));

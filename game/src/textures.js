@@ -1,29 +1,37 @@
-// Every surface painted on canvases at start-up (seeded, so identical on every load): concrete,
-// sand, salt crust, corrugated metal, crates, hall brick with its harbour band, tiles, steel, hazard.
+// Canvas-painted surfaces (seeded, identical every load) and the shared texture and material
+// helpers every builder uses.
 import * as THREE from 'three';
 import { createRng } from './rng.js';
 
 const rng = createRng(90210);
 const S = 256;
 
-function texture(c) {
+/** A texture drawn by draw(g) on a fresh w x h canvas; tiled surfaces repeat. */
+export function canvasTexture(w, h, draw, repeat = false) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  draw(c.getContext('2d'));
   const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
 }
 
-function paint(base, draw) {
-  const c = document.createElement('canvas');
-  c.width = c.height = S;
-  const g = c.getContext('2d');
-  g.fillStyle = base;
-  g.fillRect(0, 0, S, S);
-  draw(g);
-  g.globalAlpha = 1;
-  return texture(c);
+/** A soft round glow from inner to transparent outer colour (smoke puffs, blasts, bullet holes). */
+export const softTexture = (inner, outer) => canvasTexture(64, 64, (g) => {
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, inner); grad.addColorStop(1, outer);
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+});
+
+const cache = {};
+/** One shared standard material per look (clone it before animating its colours). */
+export function material(color, rough = 0.8, metal = 0, emissive = 0, glow = 0) {
+  return (cache[[color, rough, metal, emissive, glow]] ||= new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, emissive, emissiveIntensity: glow }));
 }
+
+const paint = (base, draw) => canvasTexture(S, S, (g) => { g.fillStyle = base; g.fillRect(0, 0, S, S); draw(g); }, true);
 
 function speckle(g, count, colors, max) {
   for (let i = 0; i < count; i += 1) {
@@ -77,12 +85,12 @@ const painters = {
   }),
   sand: () => paint('#d4b085', (g) => {
     grime(g, ['#b98f62', '#e8cca2', '#f0dcb8'], '#a77d55');
-    for (let i = 0; i < 9; i += 1) { const y = rng.next() * S; line(g, 'rgba(160,120,80,0.18)', 3, 0, y, S, y + rng.signed() * 12); } // wind ripples
+    for (let i = 0; i < 9; i += 1) { const y = rng.next() * S; line(g, 'rgba(160,120,80,0.18)', 3, 0, y, S, y + rng.signed() * 12); }
   }),
   salt: () => paint('#efe9dd', (g) => {
     grime(g, ['#ffffff', '#d9cfbd'], '#c9a98a');
     g.strokeStyle = 'rgba(150,130,110,0.45)'; g.lineWidth = 1.5;
-    for (let i = 0; i < 26; i += 1) { // polygonal crust plates
+    for (let i = 0; i < 26; i += 1) {
       const x = rng.next() * S, y = rng.next() * S;
       g.beginPath();
       for (let k = 0; k < 6; k += 1) { const a = k * 1.047 + rng.next() * 0.4, r = 18 + rng.next() * 22; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); }
@@ -103,7 +111,7 @@ const painters = {
       g.fillStyle = `rgb(${205 + v},${186 + v},${160 + v})`;
       g.fillRect(col * 64 + (row % 2) * 32 + 2, row * 16 + 2, 60, 12);
     }
-    g.fillStyle = '#2f7478'; g.fillRect(0, S * 0.62, S, S * 0.14); // painted harbour band
+    g.fillStyle = '#2f7478'; g.fillRect(0, S * 0.62, S, S * 0.14);
     grime(g, ['#6b5a48'], '#6b5a48', 'rgba(90,70,50,0.8)');
   }),
   crate: () => paint('#b8834c', (g) => {
@@ -131,7 +139,6 @@ export function createMaterials() {
   const tex = {};
   for (const key of Object.keys(painters)) tex[key] = painters[key]();
   const std = (map, color, rough = 0.9, metal = 0, bump = 0) => new THREE.MeshStandardMaterial({ map, color, roughness: rough, metalness: metal, bumpMap: bump ? map : null, bumpScale: bump });
-  const plain = (color, rough, metal, emissive = 0, glow = 0) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, emissive, emissiveIntensity: glow });
   return {
     concrete: std(tex.concrete, 0xffffff, 0.93, 0, 1.2),
     perimeter: std(tex.concrete, 0xe7d8c4, 0.95, 0, 1.2),
@@ -146,20 +153,15 @@ export function createMaterials() {
     steel: std(tex.steel, 0xffffff, 0.55, 0.35),
     hazard: std(tex.hazard, 0xffffff, 0.8),
     rim: std(tex.salt, 0xd9d0c0, 0.9, 0, 1),
-    dark: plain(0x2b2d2e, 0.6, 0.6),
-    pipe: plain(0x3f8f95, 0.45, 0.5),
-    pipeRust: plain(0xa4552c, 0.6, 0.4),
-    barrelBlue: plain(0x2c6c8c, 0.5, 0.4),
-    barrelRed: plain(0xb0432a, 0.55, 0.35),
-    lamp: plain(0x332a20, 0.6, 0, 0xffc070, 3),
+    dark: material(0x2b2d2e, 0.6, 0.6),
+    pipe: material(0x3f8f95, 0.45, 0.5),
+    pipeRust: material(0xa4552c, 0.6, 0.4),
+    barrelBlue: material(0x2c6c8c, 0.5, 0.4),
+    barrelRed: material(0xb0432a, 0.55, 0.35),
   };
 }
 
-/** A painted sign: lines of big letters, on a bordered board when bg is given. */
-export function signTexture(lines, bg, fg, w = 512, h = 256) {
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const g = c.getContext('2d');
+export const signTexture = (lines, bg, fg, w = 512, h = 256) => canvasTexture(w, h, (g) => {
   if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = fg; g.lineWidth = 8; g.strokeRect(12, 12, w - 24, h - 24); }
   g.fillStyle = fg;
   g.textAlign = 'center';
@@ -168,7 +170,4 @@ export function signTexture(lines, bg, fg, w = 512, h = 256) {
     g.font = `${l.weight || 800} ${l.size}px system-ui, 'Segoe UI', sans-serif`;
     g.fillText(l.text, w / 2, l.y);
   }
-  const t = texture(c);
-  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-  return t;
-}
+});

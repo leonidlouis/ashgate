@@ -1,5 +1,4 @@
-// North-up radar of the refinery: the map painted once from the grid, then each frame your squad,
-// enemies your squad saw in the last two seconds, the charge, smokes and your view cone.
+// North-up radar: the grid painted once, then squadmates, spotted enemies, charge, smokes, view cone.
 import { GRID, LEGEND, COLS, ROWS, CELL, SPOTS } from './mapdata.js';
 import { SIDES } from './config.js';
 

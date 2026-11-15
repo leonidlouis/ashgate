@@ -1,6 +1,5 @@
-// The whole match in one object. The simulation mutates it; presentation only reads it and the
-// event queue. Squad 0 is the player's squad; which side (attack or defence) each squad plays
-// swaps at half time.
+// The whole match in one object; the sim mutates it, presentation reads it. Squad 0 is yours; the
+// side each squad plays swaps at half time.
 import * as THREE from 'three';
 import { SQUAD_SIZE } from './config.js';
 import { createRng } from './rng.js';
@@ -11,7 +10,7 @@ const NAMES = [
   ['You', 'Marrow', 'Vesk', 'Oduya', 'Lintel'],
   ['Brack', 'Sorrel', 'Quill', 'Halyard', 'Tamsin'],
 ];
-export const NOISE_SLOTS = 48;
+const NOISE_SLOTS = 48;
 export const KILLFEED_SLOTS = 5;
 
 export function createState(seed, difficulty) {
@@ -43,8 +42,8 @@ export function createState(seed, difficulty) {
     noiseHead: 0,
     killfeed,
     killHead: 0,
-    spotted: new Float32Array(actors.length), // last time each actor was seen by the other squad
-    intel: [{ time: -99, x: 0, z: 0 }, { time: -99, x: 0, z: 0 }], // each squad's latest enemy contact
+    spotted: new Float32Array(actors.length), // when each actor was last seen by enemies
+    intel: [{ time: -99, x: 0, z: 0 }, { time: -99, x: 0, z: 0 }], // each squad's last contact
     events: createEventQueue(),
   };
 }
@@ -57,9 +56,8 @@ export function squadOnSide(state, side) {
   return state.match.side[0] === side ? 0 : 1;
 }
 
-/** Records a sound the bots can hear: gunfire, steps, utility, the charge. */
-export function makeNoise(state, kind, x, y, z, radius, squad) {
+export function makeNoise(state, kind, p, radius, squad) {
   const n = state.noises[state.noiseHead];
   state.noiseHead = (state.noiseHead + 1) % NOISE_SLOTS;
-  n.time = state.time; n.kind = kind; n.x = x; n.y = y; n.z = z; n.radius = radius; n.squad = squad;
+  n.time = state.time; n.kind = kind; n.x = p.x; n.y = p.y; n.z = p.z; n.radius = radius; n.squad = squad;
 }

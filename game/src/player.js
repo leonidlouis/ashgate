@@ -1,5 +1,5 @@
-// The human at the keyboard: mouse motion turns the view, held keys fill the same input record a
-// bot's brain fills, and one-shot presses switch weapons or toggle the scope.
+// The human: mouse turns the view, keys fill the same input record a bot fills, presses switch
+// weapons or toggle the scope.
 import { heldItem } from './actors.js';
 import { switchTo } from './combat.js';
 
@@ -19,7 +19,6 @@ export function createPlayerController(input, settings) {
       actor.pitch = Math.max(-1.5, Math.min(1.5, actor.pitch - look.y * k));
       return look;
     },
-    /** Before every tick: the keyboard becomes the actor's intent. */
     intent(actor) {
       const i = actor.input;
       i.fwd = axis('KeyW', 'KeyS');
@@ -31,7 +30,6 @@ export function createPlayerController(input, settings) {
       i.reload = keys.has('KeyR');
       i.use = keys.has('KeyE');
     },
-    /** One-shot presses this frame that belong to the soldier, not the menus. */
     press(actor, code) {
       if (SLOT_KEYS[code]) switchTo(actor, SLOT_KEYS[code]);
       if (code === 'Scope') {

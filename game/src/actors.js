@@ -1,9 +1,9 @@
-// A soldier as data: the player and the nine bots share this record, so movement, combat and the
-// round rules never ask who is human. Hit zones are a head sphere and torso and leg boxes,
-// sized from the current crouch.
+// A soldier as data, shared by the player and the bots, with hit zones (head sphere, torso and
+// leg boxes) sized by the current crouch.
 import * as THREE from 'three';
 import { MOVE } from './config.js';
 import { WEAPONS } from './weapons.js';
+import { rayBox } from './collision.js';
 
 export function createActor(id, squad, name, isPlayer) {
   return {
@@ -12,7 +12,7 @@ export function createActor(id, squad, name, isPlayer) {
     pos: new THREE.Vector3(), prev: new THREE.Vector3(), vel: new THREE.Vector3(),
     yaw: 0, pitch: 0, prevYaw: 0, prevPitch: 0,
     onGround: true, crouch: 0, stepAcc: 0, speed: 0,
-    input: { fwd: 0, side: 0, jump: false, crouch: false, walk: false, fire: false, reload: false, use: false, scope: false },
+    input: { fwd: 0, side: 0, jump: false, crouch: false, walk: false, fire: false, reload: false, use: false },
     primary: null,
     secondary: { def: WEAPONS.tern, mag: WEAPONS.tern.mag, reserve: WEAPONS.tern.reserve },
     knife: { def: WEAPONS.hook, mag: 0, reserve: 0 },
@@ -49,20 +49,11 @@ export function aimDirection(yaw, pitch, out) {
   return out.set(-Math.sin(yaw) * cp, Math.sin(pitch), -Math.cos(yaw) * cp);
 }
 
-function slab(o, d, lo, hi, span) {
-  if (Math.abs(d) < 1e-9) return o >= lo && o <= hi;
-  let a = (lo - o) / d, b = (hi - o) / d;
-  if (a > b) { const s = a; a = b; b = s; }
-  if (a > span.min) span.min = a;
-  if (b < span.max) span.max = b;
-  return span.min <= span.max;
-}
-
-const span = { min: 0, max: 0 };
-function rayAabb(o, d, x0, y0, z0, x1, y1, z1) {
-  span.min = 0; span.max = Infinity;
-  if (!slab(o.x, d.x, x0, x1, span) || !slab(o.y, d.y, y0, y1, span) || !slab(o.z, d.z, z0, z1, span)) return -1;
-  return span.min;
+const zone = { minX: 0, minY: 0, minZ: 0, maxX: 0, maxY: 0, maxZ: 0 }, face = { nx: 0, ny: 0, nz: 0 };
+function zoneHit(p, half, y0, y1, o, d) {
+  zone.minX = p.x - half; zone.maxX = p.x + half; zone.minY = y0; zone.maxY = y1; zone.minZ = p.z - half; zone.maxZ = p.z + half;
+  const t = rayBox(zone, o.x, o.y, o.z, 1 / (d.x || 1e-9), 1 / (d.y || 1e-9), 1 / (d.z || 1e-9), Infinity, face);
+  return t < 0 ? Infinity : t;
 }
 
 /** Ray against one actor's hit zones. Writes out.t and out.zone ('head' | 'body' | 'legs'); returns t or -1. */
@@ -76,19 +67,18 @@ export function rayActor(actor, o, d, maxT, out) {
   const flat = Math.hypot(d.x, d.z) || 1e-6;
   const perp = Math.abs(rx * d.z - rz * d.x) / flat;
   if (perp > 0.8) return -1;
-  let best = maxT, zone = '';
-  // head: sphere
+  let best = maxT, part = '';
   const hy = p.y + h - 0.15;
   const cx = p.x - o.x, cy = hy - o.y, cz = p.z - o.z;
   const b = cx * d.x + cy * d.y + cz * d.z;
   const disc = b * b - (cx * cx + cy * cy + cz * cz - 0.155 * 0.155);
-  if (disc >= 0) { const t = b - Math.sqrt(disc); if (t > 0 && t < best) { best = t; zone = 'head'; } }
-  const tb = rayAabb(o, d, p.x - 0.25, p.y + h * 0.5, p.z - 0.25, p.x + 0.25, p.y + h - 0.3, p.z + 0.25);
-  if (tb >= 0 && tb < best) { best = tb; zone = 'body'; }
-  const tl = rayAabb(o, d, p.x - 0.2, p.y, p.z - 0.2, p.x + 0.2, p.y + h * 0.5, p.z + 0.2);
-  if (tl >= 0 && tl < best) { best = tl; zone = 'legs'; }
-  if (!zone) return -1;
+  if (disc >= 0) { const t = b - Math.sqrt(disc); if (t > 0 && t < best) { best = t; part = 'head'; } }
+  const tb = zoneHit(p, 0.25, p.y + h * 0.5, p.y + h - 0.3, o, d);
+  if (tb < best) { best = tb; part = 'body'; }
+  const tl = zoneHit(p, 0.2, p.y, p.y + h * 0.5, o, d);
+  if (tl < best) { best = tl; part = 'legs'; }
+  if (!part) return -1;
   out.t = best;
-  out.zone = zone;
+  out.zone = part;
   return best;
 }
