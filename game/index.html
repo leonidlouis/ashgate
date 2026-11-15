@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASHGATE: Saltworks</title>
+<link rel="icon" href="data:,">
+<!-- Palette: night ink #10161b, salt #f4efe6, Cinder #f07a2a, Harbor #3aa6b9, hazard #f2b230, danger #e5483b.
+     System fonts only; tabular monospace figures for every number. -->
+<link rel="stylesheet" href="./style.min.css">
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud" aria-hidden="true">
+  <div id="topbar">
+    <div class="team left"><div class="pips" id="pips-0"></div><b id="score-0">0</b></div>
+    <div id="clock"><span id="timer">1:55</span><small id="round-label">Round 1</small></div>
+    <div class="team right"><b id="score-1">0</b><div class="pips" id="pips-1"></div></div>
+  </div>
+  <div id="phase-msg"></div>
+  <div id="radar"><canvas id="minimap" width="220" height="220"></canvas><span id="zone">Saltworks</span></div>
+  <ol id="killfeed"></ol>
+
+  <div id="crosshair"><i></i><i></i><i></i><i></i></div>
+  <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+  <div id="dmg"><i></i><i></i><i></i><i></i></div>
+  <div id="progress" hidden><span id="progress-label">Planting</span><div><i id="progress-fill"></i></div></div>
+
+  <div id="vitals">
+    <div id="money">$<b id="money-value">800</b></div>
+    <div class="vital"><span class="icon">+</span><b id="hp">100</b><div class="bar"><i id="hp-bar"></i></div></div>
+    <div class="vital armor"><span class="icon">&#9670;</span><b id="ap">0</b><div class="bar"><i id="ap-bar"></i></div></div>
+  </div>
+  <div id="arms">
+    <ul id="slots"></ul>
+    <div id="weapon-name">Tern P9</div>
+    <div id="ammo"><b id="mag">12</b><span id="reserve">/ 36</span></div>
+  </div>
+  <div id="charge-tag" hidden>CHARGE</div>
+  <div id="scope" hidden></div>
+  <div id="flashout"></div>
+  <div id="hurt-vignette"></div>
+</div>
+
+<div id="banner" hidden><h2 id="banner-title">Cinder Cell win</h2><p id="banner-sub"></p></div>
+
+<section id="buy" class="overlay" hidden>
+  <div class="panel wide">
+    <header><h2>Requisition</h2><span id="buy-money">$800</span><span class="hint" id="buy-timer">B to close</span></header>
+    <div id="buy-grid"></div>
+  </div>
+</section>
+
+<section id="board" class="overlay clear" hidden>
+  <div class="panel wide">
+    <header><h2>Saltworks</h2><span id="board-score"></span></header>
+    <table><thead><tr><th>Squad</th><th>Name</th><th>K</th><th>D</th><th>DMG</th><th>MVP</th><th>$</th></tr></thead><tbody id="board-rows"></tbody></table>
+  </div>
+</section>
+
+<section id="title" class="overlay">
+  <div class="panel title">
+    <p class="kicker">A round-based tactical shooter</p>
+    <h1>ASHGATE</h1>
+    <p class="lede">Saltworks, a brine refinery on the harbour at golden hour. Cinder Cell must plant a charge on <b>Site A</b> or <b>Site B</b>; Harbor Watch must stop them or defuse it. You and four squadmates against five. Money carries between rounds. First to seven.</p>
+    <button id="play" type="button">Click to play</button>
+    <div class="cols">
+      <ul class="keys">
+        <li><kbd>W A S D</kbd> Move</li>
+        <li><kbd>Mouse</kbd> Look, <kbd>Click</kbd> fire</li>
+        <li><kbd>Right click</kbd> Scope</li>
+        <li><kbd>Shift</kbd> Walk (silent)</li>
+        <li><kbd>Ctrl</kbd>/<kbd>C</kbd> Crouch</li>
+        <li><kbd>Space</kbd> Jump</li>
+      </ul>
+      <ul class="keys">
+        <li><kbd>R</kbd> Reload</li>
+        <li><kbd>1 2 3 4</kbd> Primary, sidearm, knife, grenades</li>
+        <li><kbd>E</kbd> Hold to plant or defuse</li>
+        <li><kbd>B</kbd> Buy menu</li>
+        <li><kbd>Tab</kbd> Scoreboard</li>
+        <li><kbd>Esc</kbd> Pause</li>
+      </ul>
+    </div>
+    <div class="settings">
+      <label>Sensitivity <input id="set-sens" type="range" min="0.2" max="3" step="0.05" value="1"></label>
+      <label>Volume <input id="set-vol" type="range" min="0" max="1" step="0.05" value="0.7"></label>
+      <label>Bots <select id="set-diff"><option value="recruit">Recruit</option><option value="veteran" selected>Veteran</option><option value="elite">Elite</option></select></label>
+    </div>
+  </div>
+</section>
+
+<section id="match-end" class="overlay" hidden>
+  <div class="panel wide">
+    <p class="kicker" id="end-kicker">Match over</p>
+    <h1 id="end-title">Victory</h1>
+    <p class="lede" id="end-sub"></p>
+    <table><thead><tr><th>Squad</th><th>Name</th><th>K</th><th>D</th><th>DMG</th><th>MVP</th></tr></thead><tbody id="end-rows"></tbody></table>
+    <button id="restart" type="button">Play again</button>
+  </div>
+</section>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.min.js"
+  }
+}
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+// Light and air: a low west sun with soft shadows sized to the map, sky and ground fill, warm haze,
+// a gradient sky dome with a sun glow, and the refinery beyond the walls (chimneys and
+// the sea) so every sightline ends somewhere.
+import * as THREE from 'three';
+import { PALETTE } from './config.js';
+
+const SUN_DIR = new THREE.Vector3(-0.62, 0.36, -0.7).normalize();
+
+export function buildScenery(scene, renderer) {
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  scene.fog = new THREE.Fog(PALETTE.fog, 45, 190);
+  scene.background = new THREE.Color(PALETTE.fog);
+  scene.add(new THREE.HemisphereLight(PALETTE.hemiSky, PALETTE.hemiGround, 1.25));
+  const sun = new THREE.DirectionalLight(PALETTE.sun, 3.4);
+  sun.position.copy(SUN_DIR).multiplyScalar(90);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -62, right: 62, top: 62, bottom: -62, near: 10, far: 190 }); // just the map
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.04;
+  sun.shadow.radius = 3;
+  scene.add(sun, sun.target);
+
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { top: { value: new THREE.Color(PALETTE.skyTop) }, horizon: { value: new THREE.Color(PALETTE.skyHorizon) }, sunDir: { value: SUN_DIR } },
+    vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; varying vec3 vDir;
+      void main(){
+        float h = clamp(vDir.y, -0.2, 1.0);
+        vec3 col = mix(horizon, top, pow(max(h, 0.0), 0.55));
+        float s = max(dot(normalize(vDir), sunDir), 0.0);
+        col += vec3(1.0, 0.94, 0.82) * (pow(s, 900.0) * 3.0 + pow(s, 24.0) * 0.45 + pow(s, 4.0) * 0.18);
+        col = mix(col, horizon * 0.92, smoothstep(0.02, -0.2, h));
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  }));
+  sky.renderOrder = -1;
+  scene.add(sky);
+
+  // beyond the walls: sea to the north, sand to the south, and chimneys
+  const mat = (color, roughness = 1, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
+  const far = mat(0x9c8a7a), rust = mat(0x8a4a2c, 0.9);
+  const add = (geo, m, [sx, sy, sz], [x, y, z]) => {
+    const o = new THREE.Mesh(geo, m);
+    o.scale.set(sx, sy, sz); o.position.set(x, y, z);
+    scene.add(o);
+  };
+  const flat = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  add(flat, mat(0x4f8790, 0.25, 0.3), [900, 1, 300], [0, -0.6, -230]);
+  add(flat, mat(0xcfae86), [900, 1, 500], [0, -0.05, 170]);
+  const stack = new THREE.CylinderGeometry(1, 1.3, 1, 12);
+  for (const [x, z, h, r] of [[-30, -78, 34, 2.4], [-18, -84, 26, 1.8], [40, -74, 40, 2.6], [70, -10, 22, 5], [78, 16, 18, 6], [-80, 20, 20, 5]]) {
+    add(stack, far, [r, h, r], [x, h / 2, z]);
+    add(stack, rust, [r * 1.02, 2, r * 1.02], [x, h - 4, z]);
+  }
+}
