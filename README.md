@@ -107,9 +107,8 @@ seed replays a match exactly. Hot paths reuse vectors, hit records, pools and ty
 | `render.js` | Camera, two-pass draw (world, then view model) |
 | `world.js` / `textures.js` / `scenery.js` | Map meshes and props / canvas materials / sun, sky, horizon |
 | `soldier.js` / `viewmodel.js` / `effects.js` | Bot bodies / first-person weapon / pooled effects |
-| `hud.js` / `minimap.js` / `screens.js` | HUD / radar / title, buy menu, scoreboard, summary |
+| `hud.js` / `minimap.js` / `screens.js` | HUD / radar / title and settings, buy menu, scoreboard, summary |
 | `audio.js` | Synthesised positional sound |
-| `settings.js` | Preferences in localStorage |
 | `shots.js` | Screenshot staging, loaded only with `?shot=` |
 
 ## Screenshots
