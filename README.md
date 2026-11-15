@@ -31,7 +31,7 @@ and every sound is synthesised with WebAudio.
 | E (hold) | Plant the charge on a site / defuse it |
 | B | Buy menu (freeze time and the first seconds of the round) |
 | Tab | Scoreboard |
-| Esc | Pause and settings (sensitivity, volume, bot difficulty) |
+| Esc | Pause and settings (mouse sensitivity, bot difficulty) |
 
 ## Features
 
