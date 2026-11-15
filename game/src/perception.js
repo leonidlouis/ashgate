@@ -1,5 +1,4 @@
-// What a soldier knows: enemies in the view cone with clear sight of head or chest (walls, smoke,
-// flashes count) and the nearest enemy sound in earshot; sightings feed squad intel and the radar.
+// Sight (view cone, line of sight, smoke, flash) and hearing; sightings feed squad intel.
 import * as THREE from 'three';
 import { SENSE } from './config.js';
 import { eyeOf, bodyHeight } from './actors.js';
@@ -27,11 +26,14 @@ export function perceive(state, actor, memory, intel, collision) {
   for (const other of state.actors) {
     if (!other.alive || other.squad === actor.squad || !canSee(state, actor, other, collision)) continue;
     state.spotted[other.id] = state.time;
-    const score = actor.pos.distanceToSquared(other.pos) * (other === memory.target ? 0.6 : 1); // stick with the current target
+    const score = actor.pos.distanceToSquared(other.pos) * (other === memory.target ? 0.6 : 1);
     if (score < bestScore) { bestScore = score; best = other; }
   }
   if (best) {
-    if (memory.target !== best || state.time - memory.seenAt > 1.2) memory.noticedAt = state.time; // the reaction clock starts
+    if (memory.target !== best || state.time - memory.seenAt > 1.2) { // fresh contact: react, call it out
+      memory.noticedAt = state.time;
+      state.events.emit('callout', actor, best.pos);
+    }
     memory.target = best;
     memory.seenAt = intel.time = state.time;
     memory.lastX = intel.x = best.pos.x; memory.lastY = best.pos.y; memory.lastZ = intel.z = best.pos.z;

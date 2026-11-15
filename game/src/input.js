@@ -1,4 +1,4 @@
-// Raw input: held keys, mouse buttons and mouse motion under pointer lock; one-shot presses queue.
+// Raw keys, mouse buttons and pointer-locked mouse motion.
 export function createInput(canvas, onLockChange) {
   const keys = new Set();
   const pressed = [];
@@ -31,7 +31,7 @@ export function createInput(canvas, onLockChange) {
     state,
     lock() {
       const request = canvas.requestPointerLock && canvas.requestPointerLock();
-      if (request && request.catch) request.catch(() => {}); // refused: the overlay stays up
+      if (request && request.catch) request.catch(() => {});
     },
     unlock() { if (document.pointerLockElement) document.exitPointerLock(); },
     takeLook(out) { out.x = state.lookX; out.y = state.lookY; state.lookX = 0; state.lookY = 0; return out; },

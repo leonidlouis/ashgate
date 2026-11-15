@@ -1,6 +1,5 @@
-// The HUD, written only where a value changed: vitals, ammo, clock, scores and pips, killfeed,
-// spread-sized crosshair, hit markers, damage arcs, plant/defuse bar, overlays, round banner.
-import { SIDES } from './config.js';
+// The HUD, written only where a value changed.
+import { SIDES, ROUNDS_TO_WIN } from './config.js';
 import { sideOf } from './state.js';
 import { heldItem } from './actors.js';
 import { inaccuracy } from './combat.js';
@@ -8,9 +7,8 @@ import { zoneAt } from './mapdata.js';
 import { GRENADES } from './weapons.js';
 
 const $ = (id) => document.getElementById(id);
-const REASONS = { elimination: 'Enemy squad eliminated', detonation: 'The charge detonated', defuse: 'The charge was defused', time: 'Time ran out' };
+const REASONS = { elimination: 'Squad eliminated', detonation: 'Charge detonated', defuse: 'Charge defused', time: 'Time ran out' };
 
-// change-only DOM writes, remembered per element
 const memo = (node, key, value) => { const c = node.memo || (node.memo = {}); if (c[key] === value) return false; c[key] = value; return true; };
 const text = (node, v) => { if (memo(node, 't', v)) node.textContent = v; };
 const style = (node, prop, v) => { if (memo(node, prop, v)) node.style.setProperty(prop, v); };
@@ -25,8 +23,7 @@ export function createHud() {
   const feed = make(el.killfeed, 5);
   const slots = make(el.slots, 4, ['1 Primary', '2 Sidearm', '3 Knife', '4 Utility']);
   const arcs = Array.from(el.dmg.children, (node) => ({ node, time: -99, angle: 0 }));
-  const order = [];
-  let arcHead = 0, hitTime = -99, hitHead = false, feedStamp = -1;
+  let arcHead = 0, hitTime = -99, hitHead = false, feedStamp = -1, radioAt = -99;
 
   function handle(e, state, viewer) {
     if (e.type === 'hurt' && e.other === state.player && e.actor !== state.player) { hitTime = performance.now(); hitHead = e.flag; }
@@ -44,13 +41,17 @@ export function createHud() {
       show(el.banner, true);
     }
     if (e.type === 'roundStart') show(el.banner, false);
+    if (e.type === 'callout' && e.actor.squad === state.player.squad && !e.actor.isPlayer) {
+      radioAt = state.time;
+      text(el.radio, `${e.actor.name}: contact, ${zoneAt(e.x, e.z)}`);
+    }
   }
 
   function update(state, view) {
     const me = state.player, who = view.viewer, r = state.round, m = state.match, c = state.charge;
-    // squads: yours on the left, each in the colour of the side it plays this half
     for (let s = 0; s < 2; s += 1) {
       text(el['score-' + s], String(m.score[s]));
+      text(el['team-' + s], SIDES[m.side[s]].short);
       style(document.documentElement, '--side-' + s, SIDES[m.side[s]].css);
       let k = 0;
       for (const a of state.actors) if (a.squad === s) toggle(pips[s][k++], 'dead', !a.alive);
@@ -59,30 +60,27 @@ export function createHud() {
     text(el.timer, clock(r.phase === 'freeze' || r.phase === 'live' ? r.clock : planted ? c.fuse : 0));
     toggle(el.timer, 'charge', planted);
     toggle(el.timer, 'freeze', r.phase === 'freeze');
-    text(el['round-label'], `Round ${m.round}  ·  ${mySide === 'atk' ? 'Attack' : 'Defend'}`);
+    text(el['round-label'], `Round ${m.round} of ${ROUNDS_TO_WIN * 2 - 1}  ·  ${mySide === 'atk' ? 'Attack' : 'Defend'}`);
+    show(el.radio, state.time - radioAt < 3 && (r.phase === 'live' || r.phase === 'planted'));
     let msg = '';
     if (r.phase === 'freeze') msg = `Buy phase  ·  B to buy  ·  ${SIDES[mySide].name}`;
     else if (planted) msg = `Charge planted at Site ${c.site}`;
     else if (r.phase === 'live' && r.elapsed < 4) msg = mySide === 'atk' ? 'Take a site, plant the charge' : 'Hold the sites';
     if (!me.alive && r.phase !== 'post') msg = who !== me ? `Spectating ${who.name}` : 'Eliminated';
-    if (me.alive && c.carrier === me) msg = view.onSite ? 'Hold E to plant the charge' : 'You carry the charge';
+    if (me.alive && c.carrier === me && view.onSite) msg = 'Hold E to plant the charge';
     if (me.alive && planted && mySide === 'def' && me.pos.distanceTo(c.pos) < 2.5 && c.defuser !== me) msg = 'Hold E to defuse';
     text(el['phase-msg'], msg);
     text(el.zone, zoneAt(who.pos.x, who.pos.z));
 
-    // killfeed, newest first, rebuilt only when a kill lands
     const latest = state.killfeed[(state.killHead + 4) % 5].time;
     if (latest !== feedStamp || state.tick % 60 === 0) {
       feedStamp = latest;
-      order.length = 0;
-      order.push(...state.killfeed);
-      order.sort((a, b) => b.time - a.time);
-      order.forEach((k, i) => {
-        const li = feed[i];
+      feed.forEach((li, i) => { // newest first, walking the ring backwards
+        const k = state.killfeed[(state.killHead + 4 - i) % 5];
         li.hidden = !(k.time >= 0 && state.time - k.time < 9);
         if (li.hidden) return;
         li.className = k.killer === me.name || k.victim === me.name ? 'mine' : '';
-        li.innerHTML = `<span class="c-${m.side[k.killerSquad]}">${k.killer}</span><span class="w">${k.weapon}</span>${k.head ? '<span class="hs" title="headshot">◎</span>' : ''}<span class="c-${m.side[k.victimSquad]}">${k.victim}</span>`;
+        li.innerHTML = `<span class="c-${m.side[k.killerSquad]}">${k.killer}</span><span class="w">${k.weapon}</span>${k.head ? '<span class="hs">◎</span>' : ''}<span class="c-${m.side[k.victimSquad]}">${k.victim}</span>`;
       });
     }
 
@@ -92,7 +90,7 @@ export function createHud() {
     style(el['hp-bar'], 'width', who.hp + '%');
     style(el['ap-bar'], 'width', Math.round(who.armor) + '%');
     toggle(el.hp.parentElement, 'low', who.hp <= 25);
-    const item = heldItem(who);
+    const item = heldItem(who), g = who.grenades;
     const slot = ['primary', 'secondary', 'knife', 'grenade'].indexOf(who.slot);
     for (let i = 0; i < 4; i += 1) toggle(slots[i], 'on', i === slot);
     if (item) {
@@ -100,15 +98,17 @@ export function createHud() {
       text(el.mag, item.def.mag ? String(item.mag) : '–');
       text(el.reserve, item.def.mag ? `/ ${item.reserve}` : '');
     } else {
-      const g = who.grenades;
       text(el['weapon-name'], GRENADES[who.grenadeType].name);
       text(el.mag, String(g[who.grenadeType]));
       text(el.reserve, `F${g.frag} S${g.smoke} G${g.flash}`);
     }
     toggle(el.ammo, 'low', !!item && item.def.mag > 0 && item.mag <= item.def.mag * 0.2);
-    show(el['charge-tag'], c.carrier === me && me.alive);
+    // only attackers know the carrier
+    const known = mySide === 'atk' || planted;
+    text(el['charge-tag'], c.defuser ? 'Charge \u00b7 defusing' : planted ? `Charge \u00b7 planted ${c.site}` : c.state === 'dropped' && known ? 'Charge \u00b7 dropped' : c.carrier && known ? `Charge \u00b7 ${c.carrier === me ? 'you carry it' : c.carrier.name}` : '');
+    show(el['charge-tag'], (r.phase === 'live' || planted) && known);
+    text(slots[3], `4 Utility \u00d7${g.frag + g.smoke + g.flash}`);
 
-    // crosshair gap from the real cone: tan(cone) / tan(fov / 2) * half the screen height
     const gap = 4 + Math.tan(inaccuracy(who)) / Math.tan(view.fov * Math.PI / 360) * (view.height / 2);
     style(el.crosshair, '--gap', Math.min(80, gap).toFixed(1) + 'px');
     toggle(el.crosshair, 'hidden', who.gun.scoped || !who.alive);

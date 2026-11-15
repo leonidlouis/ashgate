@@ -1,5 +1,4 @@
-// The map as boxes indexed per grid cell: rays walk the grid (DDA) for bullets and sight, bodies
-// slide and step up ledges. Nothing allocates after the build.
+// Map boxes indexed per grid cell: DDA raycasts for bullets and sight, body movement with step-up.
 import { GRID, LEGEND, COLS, ROWS, CELL, colOf, rowOf } from './mapdata.js';
 
 const EPS = 0.001;
@@ -11,7 +10,7 @@ function mergeRects(ch) {
   for (let r = 0; r < ROWS; r += 1) for (let c = 0; c < COLS; c += 1) {
     if (!take(c, r)) continue;
     let w = 1, h = 1;
-    if (ch !== 'o') { // barrels stay one cell each so every cluster reads as its own prop
+    if (ch !== 'o') {
       while (take(c + w, r)) w += 1;
       while ([...Array(w).keys()].every((i) => take(c + i, r + h))) h += 1;
     }
@@ -21,8 +20,6 @@ function mergeRects(ch) {
   return rects;
 }
 
-// Slab test of a ray (origin o, inverse direction inv) against a box { minX..maxZ }, one axis at a
-// time into a reused span. Returns the entry distance or -1 and writes the entry face's normal.
 const span = { t0: 0, t1: 0, axis: -1, sign: 0 };
 function slab(o, inv, lo, hi, k) {
   let a = (lo - o) * inv, c = (hi - o) * inv;
@@ -69,7 +66,6 @@ export function createCollision() {
   const overlaps = (b, x, z, r) => x + r > b.minX && x - r < b.maxX && z + r > b.minZ && z - r < b.maxZ;
 
   const probe = { nx: 0, ny: 0, nz: 0 };
-  /** First solid or the ground along a unit direction within maxT; fills hit, returns t or Infinity. */
   function raycast(ox, oy, oz, dx, dy, dz, maxT, hit) {
     const ix = 1 / (dx || 1e-9), iy = 1 / (dy || 1e-9), iz = 1 / (dz || 1e-9);
     let best = maxT;
@@ -100,7 +96,6 @@ export function createCollision() {
     return len < 1e-4 || raycast(ax, ay, az, dx / len, dy / len, dz / len, len, losHit) === Infinity;
   }
 
-  /** Moves an upright body (pos at the feet) axis by axis, stepping up ledges below 0.45 m. */
   function moveBody(body, dt, radius, height) {
     const p = body.pos, v = body.vel;
     for (let axis = 0; axis < 2; axis += 1) {
@@ -118,7 +113,6 @@ export function createCollision() {
       if (resolved !== next) { if (axis) v.z = 0; else v.x = 0; }
       if (axis) p.z = resolved; else p.x = resolved;
     }
-    // vertical: land on the highest top underfoot, stop under ceilings
     const nextY = p.y + v.y * dt;
     let floor = 0, ceiling = Infinity;
     for (const b of gather(p.x - radius, p.z - radius, p.x + radius, p.z + radius, near)) {

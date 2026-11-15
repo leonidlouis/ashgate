@@ -1,5 +1,4 @@
-// A soldier as data, shared by the player and the bots, with hit zones (head sphere, torso and
-// leg boxes) sized by the current crouch.
+// The soldier record shared by player and bots, with head/torso/leg hit zones.
 import * as THREE from 'three';
 import { MOVE } from './config.js';
 import { WEAPONS } from './weapons.js';
@@ -56,11 +55,9 @@ function zoneHit(p, half, y0, y1, o, d) {
   return t < 0 ? Infinity : t;
 }
 
-/** Ray against one actor's hit zones. Writes out.t and out.zone ('head' | 'body' | 'legs'); returns t or -1. */
 export function rayActor(actor, o, d, maxT, out) {
   const p = actor.pos;
   const h = bodyHeight(actor);
-  // cheap reject: distance from the ray to the actor's axis
   const rx = p.x - o.x, rz = p.z - o.z;
   const along = rx * d.x + rz * d.z;
   if (along < -1) return -1;

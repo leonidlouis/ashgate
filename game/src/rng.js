@@ -1,4 +1,4 @@
-// The match's only source of chance: a seeded mulberry32 stream, so a seed replays a match exactly.
+// The only source of chance: seeded mulberry32, so a seed replays a match.
 export function createRng(seed) {
   let a = seed >>> 0;
   const next = () => {
@@ -9,7 +9,6 @@ export function createRng(seed) {
   };
   return {
     next,
-    range: (lo, hi) => lo + (hi - lo) * next(),
     signed: () => next() * 2 - 1,
     int: (n) => Math.floor(next() * n),
     pick: (list) => list[Math.floor(next() * list.length)],

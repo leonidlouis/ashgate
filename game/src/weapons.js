@@ -1,10 +1,8 @@
-// The armoury as data for combat, buy menu, view model, audio and bots. Spread (cone half-angle)
-// and recoil (per-shot [pitch, yaw] pattern) are written in milliradians; pen is the share of
-// damage that passes armour; range is the damage kept per 12 m.
+// The armoury as data; spread and recoil in milliradians, pen = damage share through armour.
 const MRAD = 0.001;
 function gun(id, name, slot, kind, d) {
   const w = { id, name, slot, kind, pellets: 1, head: 4, body: 1, legs: 0.75, auto: false, speed: 1, ...d };
-  d.spread ||= { base: 0, move: 0, air: 0, crouch: 1, bloom: 0, recover: 1 }; // the knife: no cone, no kick
+  d.spread ||= { base: 0, move: 0, air: 0, crouch: 1, bloom: 0, recover: 1 };
   d.recoil ||= { pattern: [[0, 0]], recover: 10, view: 0 };
   w.spread = Object.fromEntries(Object.entries(d.spread).map(([k, v]) => [k, k === 'crouch' || k === 'recover' ? v : v * MRAD]));
   w.recoil = { ...d.recoil, pattern: d.recoil.pattern.map(([p, y]) => [p * MRAD, y * MRAD]) };
@@ -55,6 +53,5 @@ const menu = (title, type, ids) => ({ title, items: ids.map((id) => ({ type, id 
 export const BUY_MENU = [menu('Sidearm', 'weapon', ['tern']), menu('Primary', 'weapon', ['wisp', 'breaker', 'kestrel', 'longshore']),
   menu('Utility', 'grenade', ['frag', 'smoke', 'flash']), menu('Gear', 'gear', ['vest', 'helmet', 'kit'])];
 const TABLES = { weapon: WEAPONS, grenade: GRENADES, gear: GEAR };
-/** The data behind a buy-menu entry { type, id }. */
 export const itemDef = (entry) => TABLES[entry.type][entry.id];
 export const GRENADE_ORDER = ['frag', 'smoke', 'flash'];

@@ -1,12 +1,10 @@
-// Canvas-painted surfaces (seeded, identical every load) and the shared texture and material
-// helpers every builder uses.
+// Canvas-painted surfaces plus the shared texture and material helpers.
 import * as THREE from 'three';
 import { createRng } from './rng.js';
 
 const rng = createRng(90210);
 const S = 256;
 
-/** A texture drawn by draw(g) on a fresh w x h canvas; tiled surfaces repeat. */
 export function canvasTexture(w, h, draw, repeat = false) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -18,7 +16,6 @@ export function canvasTexture(w, h, draw, repeat = false) {
   return t;
 }
 
-/** A soft round glow from inner to transparent outer colour (smoke puffs, blasts, bullet holes). */
 export const softTexture = (inner, outer) => canvasTexture(64, 64, (g) => {
   const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
   grad.addColorStop(0, inner); grad.addColorStop(1, outer);
@@ -26,7 +23,6 @@ export const softTexture = (inner, outer) => canvasTexture(64, 64, (g) => {
 });
 
 const cache = {};
-/** One shared standard material per look (clone it before animating its colours). */
 export function material(color, rough = 0.8, metal = 0, emissive = 0, glow = 0) {
   return (cache[[color, rough, metal, emissive, glow]] ||= new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, emissive, emissiveIntensity: glow }));
 }
@@ -74,7 +70,6 @@ function line(g, style, width, x0, y0, x1, y1) {
   g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
 }
 
-// grime shared by every surface: [speckle colours, stain colour, streak colour or '']
 const grime = (g, specks, stain, streak) => { speckle(g, 1600, specks, 3); stains(g, stain, 7, 0.28); if (streak) streaks(g, streak, 30, 0.35); };
 
 const painters = {
@@ -101,7 +96,7 @@ const painters = {
     for (let i = 0; i < 16; i += 1) { const v = 150 + rng.int(30); g.fillStyle = `rgb(${v},${v - 6},${v - 16})`; g.fillRect((i % 4) * 64 + 2, (i >> 2) * 64 + 2, 60, 60); }
     grime(g, ['#6f675d', '#cfc7b8'], '#5d5247');
   }),
-  corrugated: () => paint('#ccc', (g) => { // grey ribs: the paint colour comes from the material
+  corrugated: () => paint('#ccc', (g) => {
     for (let x = 0; x < S; x += 1) { const v = 205 + Math.sin(x / S * Math.PI * 24) * 40; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(x, 0, 1, S); }
     grime(g, ['#5a2a12', '#e0d6c8'], '#7a3a1a', 'rgba(120,50,20,0.9)');
   }),
@@ -125,10 +120,6 @@ const painters = {
     g.fillText('SALTWORKS', S / 2, S * 0.3);
     g.fillText('BRINE 07', S / 2, S * 0.78);
   }),
-  steel: () => paint('#e6e0d4', (g) => {
-    for (let i = 0; i < 4; i += 1) line(g, 'rgba(120,110,100,0.4)', 2, 0, i * 64, S, i * 64);
-    grime(g, ['#a59a8a'], '#9b6a44', 'rgba(150,70,30,0.9)');
-  }),
   hazard: () => paint('#e9b23a', (g) => {
     for (let i = -S; i < S * 2; i += 64) line(g, '#26221f', 22, i, 0, i - S, S);
     grime(g, ['#7a6a50', '#fff2cf'], '#7a6a50');
@@ -150,7 +141,7 @@ export function createMaterials() {
     saltMetal: std(tex.corrugated, 0xf1e6d2, 0.75, 0.2, 2),
     hall: std(tex.brick, 0xffffff, 0.9, 0, 1),
     crate: std(tex.crate, 0xffffff, 0.85, 0, 1.5),
-    steel: std(tex.steel, 0xffffff, 0.55, 0.35),
+    steel: std(tex.concrete, 0xfaf4ea, 0.55, 0.35),
     hazard: std(tex.hazard, 0xffffff, 0.8),
     rim: std(tex.salt, 0xd9d0c0, 0.9, 0, 1),
     dark: material(0x2b2d2e, 0.6, 0.6),

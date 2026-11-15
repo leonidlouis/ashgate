@@ -1,5 +1,4 @@
-// WebAudio synthesis: per-weapon shots, steps, reload clicks, beeps, blasts and UI ticks, panned
-// by bearing and dulled by distance. Created on the first click.
+// Synthesised WebAudio: per-weapon shots, steps, clicks, beeps, blasts; panned and distance-dulled.
 const CHIMES = { planted: [520, 390], defused: [660, 880], live: [440, 660] };
 
 export function createAudio() {
@@ -16,10 +15,9 @@ export function createAudio() {
     master.connect(ctx.createDynamicsCompressor()).connect(ctx.destination);
     noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const data = noise.getChannelData(0);
-    for (let i = 0, seed = 7; i < data.length; i += 1) { seed = (seed * 16807) % 2147483647; data[i] = seed / 1073741823.5 - 1; }
+    for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
   }
 
-  // a source through a filter, an attack/decay envelope and a panner, starting `at` seconds from now
   function play(src, filter, cut, q, gain, attack, decay, pan, at) {
     const t = ctx.currentTime + at, fl = ctx.createBiquadFilter(), g = ctx.createGain(), p = ctx.createStereoPanner();
     fl.type = filter; fl.frequency.value = cut; fl.Q.value = q;
@@ -31,7 +29,6 @@ export function createAudio() {
     src.start(t);
     src.stop(t + attack + decay + 0.05);
   }
-  /** Filtered noise; rate pitches it (shots, steps, blasts, clicks). */
   function hiss(rate, filter, cut, gain, decay, pan = 0, at = 0, q = 0.7, attack = 0.002) {
     if (!ctx) return;
     const src = ctx.createBufferSource();
@@ -39,7 +36,6 @@ export function createAudio() {
     src.playbackRate.value = 0.7 + rate * 0.3;
     play(src, filter, cut, q, gain, attack, decay, pan, at);
   }
-  /** An oscillator, optionally sliding its pitch by `slide` over the decay (thumps, beeps, chimes). */
   function tone(f, wave, gain, decay, pan = 0, at = 0, slide = 0, cut = 8000) {
     if (!ctx) return;
     const src = ctx.createOscillator(), t = ctx.currentTime + at;
@@ -49,7 +45,6 @@ export function createAudio() {
     play(src, 'lowpass', cut, 0.7, gain, 0.002, decay, pan, at);
   }
 
-  // where a sound sits for the listener: pan by its bearing, loudness and brightness by distance
   const where = { pan: 0, near: 1, d: 0 };
   function place(x, z, own) {
     const dx = x - listener.x, dz = z - listener.z, d = own ? 0 : Math.hypot(dx, dz);
@@ -72,7 +67,7 @@ export function createAudio() {
         hiss(s.pitch, 'lowpass', 1200 + 7000 * near, 0.55 * near * s.body, s.tail, pan);
         tone(140 * s.pitch, 'triangle', 0.5 * near * s.body, 0.12, pan, 0, 0.35);
         hiss(2, 'highpass', 3500, 0.25 * near, 0.04, pan);
-        if (d > 20) hiss(0.5, 'lowpass', 500, 0.12, 0.5, pan, d / 340); // the echo off the far walls
+        if (d > 20) hiss(0.5, 'lowpass', 500, 0.12, 0.5, pan, d / 340);
         break;
       }
       case 'step': if (near > 0.3) hiss(0.6, 'lowpass', own ? 700 : 600, own ? 0.12 : 0.35 * near, 0.08, pan); break;
@@ -81,7 +76,7 @@ export function createAudio() {
       case 'dry': case 'draw': case 'pin': if (own) click(0, { dry: 3200, draw: 1800, pin: 4200 }[e.type]); break;
       case 'bounce': tone(900, 'square', 0.08 * near, 0.04, pan); break;
       case 'hurt':
-        if (e.other === player && !own) tone(e.flag ? 1900 : 1100, 'sine', 0.18, e.flag ? 0.2 : 0.06); // hit tick, headshot ring
+        if (e.other === player && !own) tone(e.flag ? 1900 : 1100, 'sine', 0.18, e.flag ? 0.2 : 0.06);
         if (own) hiss(0.5, 'lowpass', 900, 0.5, 0.15);
         break;
       case 'frag': case 'detonate': {

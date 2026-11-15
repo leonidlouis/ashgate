@@ -1,5 +1,4 @@
-// Boot and the loop: fixed 60 Hz sim ticks from an accumulator, one interpolated render per frame,
-// sim events drained into effects, audio and HUD. ?shot=name&seed=N stages a screenshot (shots.js).
+// Boot and loop: fixed 60 Hz ticks from an accumulator, one interpolated render per frame.
 import { TICK, MAX_STEPS_PER_FRAME } from './config.js';
 import { createState } from './state.js';
 import { createCollision } from './collision.js';
@@ -12,9 +11,8 @@ import { stepSim } from './sim.js';
 import { createInput } from './input.js';
 import { createPlayerController } from './player.js';
 import { createHud } from './hud.js';
-import { createScreens } from './screens.js';
+import { createScreens, loadSettings } from './screens.js';
 import { createMinimap } from './minimap.js';
-import { loadSettings, saveSettings } from './settings.js';
 import { createView } from './render.js';
 import { createAudio } from './audio.js';
 
@@ -38,13 +36,13 @@ const input = createInput(document.querySelector('#game canvas'), onLockChange);
 const controller = createPlayerController(input, settings);
 const screens = createScreens(state, {
   settings,
-  saveSettings() { saveSettings(settings); state.difficulty = settings.difficulty; },
+  onSettings() { state.difficulty = settings.difficulty; },
   play,
   restart,
   ui: () => audio.ui(),
 });
 
-let mode = 'title'; // title | playing | paused | over | shot
+let mode = 'title';
 let accumulator = 0;
 let last = performance.now();
 const noLook = { x: 0, y: 0 };
@@ -77,7 +75,6 @@ function onLockChange(locked) {
   }
 }
 
-// the camera rides your eyes, or a living squadmate's once you are down
 function viewerOf() {
   const me = state.player;
   if (me.alive || state.round.phase === 'freeze') return me;
@@ -159,7 +156,6 @@ window.addEventListener('resize', () => view.resize());
 if (shot) {
   mode = 'shot';
   screens.hideTitle();
-  // the staging code is only fetched for screenshots; normal play never loads it
   const { runShot } = await import('./shots.js');
   runShot(shot, {
     state, ctx, screens, present,

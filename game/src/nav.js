@@ -1,6 +1,5 @@
-// Bot navigation: A* over walkable 2 m cells (8-way, no corner cutting, wall penalty), then
-// string-pulled into straight legs. Typed arrays reused per search.
-import { COLS, ROWS, CELL, cellX, cellZ, colOf, rowOf } from './mapdata.js';
+// A* over walkable 2 m cells, string-pulled into straight legs.
+import { COLS, ROWS, cellX, cellZ, colOf, rowOf } from './mapdata.js';
 import { isWalkable } from './collision.js';
 
 const N = COLS * ROWS;
@@ -9,7 +8,7 @@ const MAX_POINTS = 64;
 export function createPath() {
   const points = [];
   for (let i = 0; i < MAX_POINTS; i += 1) points.push({ x: 0, z: 0 });
-  return { points, count: 0, index: 0, goalX: 0, goalZ: 0 };
+  return { points, count: 0, index: 0 };
 }
 
 export function createNav() {
@@ -30,7 +29,6 @@ export function createNav() {
   const chain = new Int32Array(N);
   let search = 0, size = 0;
 
-  // binary min-heap of open cells keyed by f, in typed arrays reused by every search
   function push(i, f) {
     let k = size++;
     for (let p = (k - 1) >> 1; k > 0 && heapF[p] > f; p = (k - 1) >> 1) { heap[k] = heap[p]; heapF[k] = heapF[p]; k = p; }
@@ -60,7 +58,6 @@ export function createNav() {
     return -1;
   }
 
-  /** True when a body of radius 0.4 can walk the straight line a-b. */
   function lineWalkable(ax, az, bx, bz) {
     const len = Math.hypot(bx - ax, bz - az);
     const steps = Math.ceil(len / 0.5);
@@ -74,7 +71,7 @@ export function createNav() {
   }
 
   function findPath(fromX, fromZ, toX, toZ, path) {
-    path.count = 0; path.index = 0; path.goalX = toX; path.goalZ = toZ;
+    path.count = 0; path.index = 0;
     const start = nearest(colOf(fromX), rowOf(fromZ));
     const goal = nearest(colOf(toX), rowOf(toZ));
     if (start < 0 || goal < 0) return 0;
@@ -105,7 +102,6 @@ export function createNav() {
       }
     }
     if (!found) return 0;
-    // walk parents back, then keep only the corners a straight line cannot skip
     let n = 0;
     for (let i = goal; i !== -1; i = parent[i]) chain[n++] = i;
     let ax = fromX, az = fromZ;
@@ -125,5 +121,5 @@ export function createNav() {
     return path.count;
   }
 
-  return { findPath, lineWalkable, open, cell: CELL };
+  return { findPath, open };
 }

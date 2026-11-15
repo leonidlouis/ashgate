@@ -1,5 +1,4 @@
-// Pooled visuals fed by sim events: tracers, sparks and blood (one Points cloud), bullet holes,
-// smoke puffs, blasts, grenades in flight and the charge beacon. Nothing allocates per frame.
+// Pooled visuals fed by sim events: tracers, sparks, blood, holes, smoke, blasts, grenades, charge.
 import * as THREE from 'three';
 import { softTexture, material } from './textures.js';
 
@@ -22,7 +21,7 @@ export function createEffects(scene) {
   const nadeGeo = new THREE.SphereGeometry(0.07, 8, 6);
   const nadeMat = material(0x3d4a33, 0.6);
   const nades = pool(12, () => new THREE.Mesh(nadeGeo, nadeMat));
-  // three point lights always present, dark until needed, so shaders never recompile
+  // lights stay in the scene, dark until needed, so shaders never recompile
   const blastLight = new THREE.PointLight(0xffa850, 0, 30, 2);
   const muzzleLight = new THREE.PointLight(0xffc070, 0, 9, 2);
   const chargeLight = new THREE.PointLight(0xff3010, 0, 6, 2);
@@ -52,10 +51,9 @@ export function createEffects(scene) {
     }
   }
 
-  // the charge: a strapped box with a beacon that flashes on every beep
   const charge = new THREE.Group();
   const beaconMat = material(0x400808, 0.65, 0, 0xff2a10).clone();
-  for (const [w, h, d, x, y, m] of [[0.42, 0.16, 0.3, 0, 0.08, material(0x3b3229, 0.65)], [0.44, 0.17, 0.06, 0, 0.08, material(0xf07a2a, 0.65)], [0.08, 0.06, 0.08, 0.1, 0.19, beaconMat], [0.16, 0.02, 0.1, -0.08, 0.165, material(0x102010, 0.65, 0, 0x40ff60, 0.8)]]) {
+  for (const [w, h, d, x, y, m] of [[0.42, 0.16, 0.3, 0, 0.08, material(0x3b3229)], [0.44, 0.17, 0.06, 0, 0.08, material(0xf07a2a)], [0.08, 0.06, 0.08, 0.1, 0.19, beaconMat], [0.16, 0.02, 0.1, -0.08, 0.165, material(0x102010, 0.8, 0, 0x40ff60, 0.8)]]) {
     const part = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
     part.position.set(x, y, 0);
     part.castShadow = true;
@@ -92,7 +90,7 @@ export function createEffects(scene) {
     switch (e.type) {
       case 'tracer':
         muzzleOf(e.actor, camera, tmp2);
-        // your own tracer starts a few metres out: a streak, not a beam across the screen
+        // your own tracer starts 3 m out, a streak rather than a beam across the screen
         if (e.actor.isPlayer) tmp2.lerp(tmp.set(e.x, e.y, e.z), Math.min(0.5, 3 / Math.max(3, tmp2.distanceTo(tmp))));
         tracer(tmp2, e.x, e.y, e.z);
         break;

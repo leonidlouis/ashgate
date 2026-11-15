@@ -1,5 +1,4 @@
-// Ground movement for every soldier: acceleration, friction, walk/crouch speeds, jumps, map
-// collision, body separation. Running steps are loud; walking is silent.
+// Ground movement: acceleration, friction, walk/crouch, jump, collision; running steps are heard.
 import { MOVE, SENSE } from './config.js';
 import { bodyHeight, heldItem } from './actors.js';
 import { makeNoise } from './state.js';
@@ -16,7 +15,6 @@ function maxSpeed(actor) {
 export function stepMovement(state, actor, dt, collision) {
   const input = actor.input;
   const v = actor.vel;
-  // crouch eases in and out; standing back up needs headroom (the map tests that via moveBody)
   const target = input.crouch ? 1 : 0;
   actor.crouch += Math.sign(target - actor.crouch) * Math.min(Math.abs(target - actor.crouch), MOVE.crouchRate * dt);
 
@@ -28,7 +26,6 @@ export function stepMovement(state, actor, dt, collision) {
   const top = maxSpeed(actor);
 
   if (actor.onGround) {
-    // friction first, then acceleration capped at the top speed along the wish
     const speed = Math.hypot(v.x, v.z);
     if (speed > 0) {
       const drop = Math.max(speed, MOVE.stopSpeed) * MOVE.friction * dt;

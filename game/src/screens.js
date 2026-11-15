@@ -1,10 +1,16 @@
-// Screens around the fight: title/pause with settings, the buy menu, the Tab scoreboard and the
-// match summary.
+// Title and settings, buy menu, scoreboard, match summary.
 import { BUY_MENU, itemDef } from './weapons.js';
 import { SIDES, ROUND } from './config.js';
 import { buy, buyBlock, priceOf, canBuy } from './economy.js';
 
 const $ = (id) => document.getElementById(id);
+const KEY = 'ashgate.settings';
+
+/** Preferences (mouse sensitivity, bot difficulty), kept in localStorage when it is available. */
+export function loadSettings() {
+  const defaults = { sensitivity: 1, difficulty: 'veteran' };
+  try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return defaults; }
+}
 
 function statLine(entry) {
   const w = itemDef(entry);
@@ -33,7 +39,7 @@ export function createScreens(state, hooks) {
   const s = hooks.settings;
   for (const [input, key] of [[el.sens, 'sensitivity'], [el.diff, 'difficulty']]) {
     input.value = s[key];
-    input.addEventListener('change', () => { s[key] = key === 'difficulty' ? input.value : +input.value; hooks.saveSettings(); });
+    input.addEventListener('change', () => { s[key] = key === 'difficulty' ? input.value : +input.value; try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode */ } hooks.onSettings(); });
   }
   el.play.addEventListener('click', () => hooks.play());
   el.restart.addEventListener('click', () => hooks.restart());

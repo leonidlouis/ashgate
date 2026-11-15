@@ -1,7 +1,6 @@
 // Saltworks, a salt refinery at golden hour: a 48 x 44 grid of 2 m cells, north up, driving collision,
-// navigation, meshes and minimap. Site A Evaporation Pans (NW), Site B Pump Hall (NE); lanes Salt Yard
-// (west), Brine Channel (mid, long sightline through the Gate), Conveyor Row (east); connectors Short A,
-// Pipe Alley, Underpass. Harbor Watch spawns north (D), Cinder Cell south (S).
+// navigation, meshes and minimap. Sites A (NW) and B (NE); lanes west, mid (long sightline through the
+// Gate) and east; connectors Short A, Pipe Alley, Underpass. Harbor Watch spawns at D, Cinder Cell at S.
 export const CELL = 2;
 export const COLS = 48;
 export const ROWS = 44;
@@ -83,7 +82,6 @@ export const SPOTS = {
   },
 };
 
-// [name, col0, row0, col1, row1]: area names shown under the radar
 const ZONES = [['Evaporation Pans', 1, 1, 16, 16], ['Harbor Watch spawn', 17, 1, 29, 5], ['Pump Hall', 30, 1, 46, 16], ['Short A', 17, 11, 20, 13],
   ['Brine Channel', 21, 6, 26, 36], ['Salt Yard', 1, 17, 8, 36], ['Underpass', 9, 29, 20, 30], ['Pipe Alley', 27, 17, 37, 20], ['Conveyor Row', 38, 17, 46, 36], ['Cinder yard', 1, 37, 46, 42]];
 

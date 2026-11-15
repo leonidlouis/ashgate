@@ -1,5 +1,4 @@
-// Squad leaders: attackers pick a site and a style (rush, split, staged default), defenders anchor
-// holds; then execute, rotate, fetch the charge, crossfire after the plant, retake and defuse.
+// Squad plans: site and style, anchors, execute, rotations, charge fetch, post-plant, retake.
 import { SPOTS, cellX, cellZ } from './mapdata.js';
 import { assignTask, planThrow } from './brain.js';
 import { squadOnSide } from './state.js';
@@ -16,7 +15,7 @@ export function planRound(state) {
     const list = bots(state, squad);
     const bank = list.reduce((sum, a) => sum + a.money, 0) / Math.max(1, list.length);
     const pistolRound = state.match.round === 1 || state.match.round === 7;
-    for (const a of list) botBuy(state, a, !pistolRound && bank < 2000); // a thin bank saves together
+    for (const a of list) botBuy(state, a, !pistolRound && bank < 2000);
   }
   const site = rng.chance(0.5) ? 'A' : 'B';
   const style = rng.pick(['rush', 'default', 'default', 'split']);
@@ -27,7 +26,6 @@ export function planRound(state) {
     assignTask(a.bot, SPOTS.routes[site][style === 'rush' ? rushLane : lanes[i % lanes.length]], [SPOTS.sites[site].post[i % 4], SPOTS.sites[site].center], carrier ? 'plant' : '', { wait: !plan.released });
     if (carrier) setPlant(state, a, site);
   });
-  // defender anchors: two on one site, one on the other, one mid, one spare
   const holds = [];
   const draw = (list, n) => { const copy = list.slice(); for (let i = 0; i < n; i += 1) holds.push(copy.splice(rng.int(copy.length), 1)[0]); };
   const heavy = rng.chance(0.5) ? 'A' : 'B', light = heavy === 'A' ? 'B' : 'A';
@@ -47,7 +45,6 @@ export function stepStrategy(state) {
   const attackers = bots(state, atk), defenders = bots(state, def);
   const site = SPOTS.sites[plan.site];
 
-  // execute on the clock, on contact, or late in the round; one attacker smokes a hold
   if (!plan.released && (state.round.clock < plan.executeAt || state.time - state.intel[atk].time < 1.5 || state.round.clock < 40)) {
     plan.released = true;
     for (const a of attackers) a.bot.released = true;
@@ -64,7 +61,6 @@ export function stepStrategy(state) {
     setPlant(state, c.carrier, plan.site);
   }
   if (c.state !== 'planted') {
-    // rotate toward a site where attackers were seen
     const intel = state.intel[def];
     if (plan.rotatedTo || state.time - intel.time > 2) return;
     for (const key of ['A', 'B']) {
@@ -77,12 +73,12 @@ export function stepStrategy(state) {
     return;
   }
   const spots = SPOTS.sites[c.site];
-  if (!plan.postPlant) { // attackers spread into a crossfire around the charge
+  if (!plan.postPlant) {
     plan.postPlant = true;
     attackers.forEach((a, i) => assignTask(a.bot, [], [spots.post[i % 4], spots.center, i % 2 === 1], '', { anchored: true }));
   }
   if (plan.retake && !defenders.some((a) => a.bot.objective === 'defuse')) plan.retake = false;
-  if (!plan.retake) { // the nearest defender defuses, the rest retake through the hold spots
+  if (!plan.retake) {
     plan.retake = true;
     const defuser = nearest(defenders, c.pos);
     defenders.forEach((a, i) => (a === defuser ? assignTask(a.bot, [], null, 'defuse') : assignTask(a.bot, [], [spots.holds[i % 4][0], spots.center], '')));

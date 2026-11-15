@@ -1,4 +1,4 @@
-// North-up radar: the grid painted once, then squadmates, spotted enemies, charge, smokes, view cone.
+// North-up radar: squad, spotted enemies, charge, smokes, view cone.
 import { GRID, LEGEND, COLS, ROWS, CELL, SPOTS } from './mapdata.js';
 import { SIDES } from './config.js';
 

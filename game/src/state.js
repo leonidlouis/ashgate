@@ -1,5 +1,4 @@
-// The whole match in one object; the sim mutates it, presentation reads it. Squad 0 is yours; the
-// side each squad plays swaps at half time.
+// The whole match in one object; the sim mutates it, presentation reads it.
 import * as THREE from 'three';
 import { SQUAD_SIZE } from './config.js';
 import { createRng } from './rng.js';
@@ -22,12 +21,10 @@ export function createState(seed, difficulty) {
   const killfeed = [];
   for (let i = 0; i < KILLFEED_SLOTS; i += 1) killfeed.push({ time: -99, killer: '', killerSquad: 0, victim: '', victimSquad: 0, weapon: '', head: false });
   return {
-    seed,
     rng: createRng(seed),
     difficulty,
     time: 0,
     tick: 0,
-    paused: false,
     match: { round: 0, score: [0, 0], side: ['atk', 'def'], lossStreak: [0, 0], over: false, winner: -1 },
     round: { phase: 'idle', clock: 0, elapsed: 0, winner: -1, reason: '', mvp: null, plan: null },
     charge: {
@@ -42,8 +39,8 @@ export function createState(seed, difficulty) {
     noiseHead: 0,
     killfeed,
     killHead: 0,
-    spotted: new Float32Array(actors.length), // when each actor was last seen by enemies
-    intel: [{ time: -99, x: 0, z: 0 }, { time: -99, x: 0, z: 0 }], // each squad's last contact
+    spotted: new Float32Array(actors.length),
+    intel: [{ time: -99, x: 0, z: 0 }, { time: -99, x: 0, z: 0 }],
     events: createEventQueue(),
   };
 }

@@ -1,5 +1,4 @@
-// A frame: camera on the viewer's eyes (interpolated, recoil kick, scope zoom), soldiers posed,
-// effects advanced, then world and view model in two passes.
+// A frame: interpolated camera with recoil kick and scope, posed soldiers, effects, two-pass draw.
 import * as THREE from 'three';
 import { heldItem, eyeHeight } from './actors.js';
 import { sideOf } from './state.js';
@@ -44,7 +43,6 @@ export function createView(container, state, collision) {
     if (Math.abs(fov - target) > 0.01) { fov = target; camera.fov = fov; camera.updateProjectionMatrix(); }
   }
 
-  /** Camera first, so effects drained this frame (tracers from the muzzle) see this frame's view. */
   function prepare(viewer, alpha) {
     placeCamera(viewer, alpha);
     camera.updateMatrixWorld();
@@ -80,5 +78,5 @@ export function createView(container, state, collision) {
 
   function age(state, dt) { effects.update(state, dt, 1); vm.settle(); }
 
-  return { prepare, draw, handle, age, resize, clear: effects.clear, camera, get fov() { return fov; } };
+  return { prepare, draw, handle, age, resize, clear: effects.clear, get fov() { return fov; } };
 }

@@ -1,5 +1,4 @@
-// Guns: timers, reloads, switching, spread, recoil, hitscan against map and hit zones, armour,
-// kills. The same code fires for player and bots, so shooting on the run is inaccurate for both.
+// Guns: timers, reloads, switching, spread, recoil, hitscan on hit zones, armour, kills.
 import * as THREE from 'three';
 import { MOVE, SENSE, ECONOMY } from './config.js';
 import { GRENADES, GRENADE_ORDER } from './weapons.js';
@@ -15,10 +14,9 @@ const UP = new THREE.Vector3(0, 1, 0);
 const mapHit = { t: 0, nx: 0, ny: 0, nz: 0, box: null };
 const zoneHit = { t: 0, zone: '' };
 
-/** The cone half-angle (radians) right now: base, run speed squared, air, bloom, crouch, scope. */
 export function inaccuracy(actor) {
   const item = heldItem(actor);
-  if (!item || item.def.kind === 'knife') return 0;
+  if (!item) return 0;
   const s = item.def.spread;
   const run = Math.max(0, Math.min(1, (actor.speed - MOVE.walk * 0.6) / (MOVE.run - MOVE.walk * 0.6)));
   const base = item.def.kind === 'marksman' && actor.gun.scoped ? s.scoped : s.base;
@@ -64,7 +62,6 @@ export function stepWeapon(state, actor, dt, collision) {
   if (gun.reload > 0 && (gun.reload -= dt) <= 0) {
     const take = Math.min(def.mag - item.mag, item.reserve);
     item.mag += take; item.reserve -= take; gun.reload = 0;
-    state.events.emit('reloaded', actor);
   }
   const canReload = def.mag > 0 && item.mag < def.mag && item.reserve > 0;
   if ((input.reload || (input.fire && item.mag === 0)) && canReload && gun.reload <= 0 && gun.draw <= 0) {
@@ -112,7 +109,6 @@ function fire(state, actor, item, collision) {
     dir.set(cx + right.x * ox + up.x * oy, cy + right.y * ox + up.y * oy, cz + right.z * ox + up.z * oy).normalize();
     trace(state, actor, def, collision, p < 3);
   }
-  // the spray walks the weapon's pattern; every shot blooms the cone
   const kick = def.recoil.pattern[Math.min(gun.shots, def.recoil.pattern.length - 1)];
   gun.punchPitch += kick[0] * (0.9 + rng.next() * 0.2);
   gun.punchYaw += kick[1] + rng.signed() * kick[0] * 0.12;
@@ -146,7 +142,6 @@ function trace(state, shooter, def, collision, tracer) {
   }
 }
 
-/** Damage after hit zone and armour (a helmet guards the head). Returns the health taken. */
 export function applyDamage(state, victim, attacker, amount, zone, def) {
   if (!victim.alive) return 0;
   let dmg = amount * (zone === 'head' ? def.head : zone === 'legs' ? def.legs : def.body);
@@ -183,6 +178,4 @@ function kill(state, victim, killer, def, head) {
   const k = state.killfeed[state.killHead];
   state.killHead = (state.killHead + 1) % KILLFEED_SLOTS;
   Object.assign(k, { time: state.time, killer: killer ? killer.name : 'Saltworks', killerSquad: killer ? killer.squad : victim.squad, victim: victim.name, victimSquad: victim.squad, weapon: def.name, head });
-  const e = state.events.emit('kill', victim);
-  e.other = killer; e.weapon = def; e.flag = head;
 }

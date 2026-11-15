@@ -1,5 +1,4 @@
-// Light and air: low west sun with soft shadows over the map, sky and ground fill, warm haze, a
-// gradient sky with sun glow, and refinery chimneys beyond the walls.
+// Low west sun with soft shadows, sky and ground fill, haze, sky shader, chimneys beyond the walls.
 import * as THREE from 'three';
 import { PALETTE } from './config.js';
 import { material as mat } from './textures.js';
@@ -44,7 +43,6 @@ export function buildScenery(scene, renderer) {
   sky.renderOrder = -1;
   scene.add(sky);
 
-  // chimneys beyond the walls, so long sightlines end on the skyline
   const far = mat(0x9c8a7a, 1), rust = mat(0x8a4a2c, 0.9);
   const add = (geo, m, [sx, sy, sz], [x, y, z]) => {
     const o = new THREE.Mesh(geo, m);

@@ -1,6 +1,5 @@
-// Screenshot staging: a seeded real match, fast-forwarded through the real sim to a staged moment
-// with your seat on autopilot, then frozen. Loaded only with ?shot=.
-import { createBrain, assignTask } from './brain.js';
+// Screenshot staging: the real seeded sim fast-forwarded to a staged moment, then frozen (?shot=).
+import { createBrain, assignTask, planThrow } from './brain.js';
 import { startRound } from './rounds.js';
 import { buy } from './economy.js';
 import { HALF_LENGTH } from './config.js';
@@ -25,7 +24,6 @@ function place(actor, c, r, yaw) {
   if (actor.bot) { actor.bot.mem.target = null; actor.bot.path.count = 0; actor.bot.pathX = 1e9; }
 }
 
-/** Places the living: yours on `mine` spots, theirs on `theirs`; task(actor, spot, i, friendly) plans each. */
 function deploy(state, mine, theirs, task) {
   let f = 0, e = 0;
   for (const a of state.actors) {
@@ -46,7 +44,6 @@ function runUntil(api, test, limit) {
 }
 
 const SCENES = {
-  // first round of the second buy: an opening played out, then a firefight down the Brine Channel
   play(api) {
     const { state } = api, me = state.player;
     me.bot = createBrain();
@@ -59,14 +56,16 @@ const SCENES = {
       ? assignTask(a.bot, [[s[0], s[1] - 4]], null, '')
       : assignTask(a.bot, [[s[0], s[1] + 1]], [s, [23, 31], i === 1], '')));
     assignTask(me.bot, [], [[22.5, 31], [23.5, 22]], '');
+    const smoker = state.actors.find((a) => a.squad === me.squad && a.bot && a.alive && !a.isPlayer);
+    smoker.grenades.smoke = 1;
+    planThrow(smoker, 'smoke', cellX(21.4), 0.3, cellZ(20));
     let fired = 0;
     runUntil(api, () => {
       if (me.gun.sinceShot === 0) fired += 1;
       const t = me.bot.mem.target;
-      return me.alive && fired >= 3 && t && t.alive && state.time - me.bot.mem.seenAt < 0.05 && me.gun.sinceShot === 0;
+      return me.alive && fired >= 3 && state.smokes.some((s) => s.radius > 2.5) && t && t.alive && state.time - me.bot.mem.seenAt < 0.05 && me.gun.sinceShot === 0;
     }, 60 * 12);
   },
-  // freeze time in the Cinder yard with the buy menu open
   buy(api) {
     const { state } = api, me = state.player;
     stageRound(state, 3, [1, 1], 4350);
@@ -76,7 +75,6 @@ const SCENES = {
     api.screens.setBuy(true);
     api.screens.update(5);
   },
-  // second half, defending: the charge goes down in Pump Hall, the squad retakes, you defuse
   site(api) {
     const { state } = api, me = state.player, c = state.charge;
     me.bot = createBrain();
@@ -100,7 +98,6 @@ const SCENES = {
     me.pitch = -0.5;
     me.yaw = Math.atan2(me.pos.x - c.pos.x, me.pos.z - c.pos.z);
   },
-  // a whole match played bot against bot, your seat on autopilot, to the final summary
   end(api) {
     api.state.player.bot = createBrain();
     runUntil(api, () => api.state.round.phase === 'over', 60 * 60 * 45);

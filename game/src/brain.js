@@ -1,5 +1,4 @@
-// One bot's mind: perceive every 0.1 s, pick a mode, then steer, aim and shoot through the same
-// input record the keyboard fills. Modes by priority: engage, cover, chase, investigate, task, throw.
+// One bot: perceive, pick a mode (engage, cover, chase, investigate, task, throw), steer, aim, shoot.
 import { SENSE, DIFFICULTY } from './config.js';
 import { createMemory, perceive } from './perception.js';
 import { createPath } from './nav.js';
@@ -20,7 +19,6 @@ export function createBrain() {
   };
 }
 
-/** A plan: waypoints (cells), then an optional hold [spot, look-at, crouch] or objective. */
 export function assignTask(brain, cells, hold, objective, options = {}) {
   brain.route = cells.map(([c, r]) => ({ x: cellX(c), z: cellZ(r) }));
   brain.routeIndex = 0;
@@ -57,13 +55,11 @@ function decide(state, actor, ctx) {
   const item = heldItem(actor), diff = DIFFICULTY[state.difficulty];
   b.hasGoal = b.hasLook = b.fireOk = b.crouch = b.walk = b.use = false;
   const visible = mem.target && t - mem.seenAt < 0.25;
-  // best gun out; the sidearm once the primary is dry
   if (!b.throwType && actor.gun.throwing <= 0) {
     const want = actor.primary && (actor.primary.mag > 0 || actor.primary.reserve > 0) ? 'primary' : 'secondary';
     if (actor.slot !== want) switchTo(actor, want);
   }
   if (b.throwType) { b.mode = 'throw'; return; }
-  // keep planting or defusing unless shot at early in the timer
   if ((b.mode === 'plant' || b.mode === 'defuse') && (!visible || state.charge.progress > 0.6)) {
     objective(state, actor, ctx);
     if (b.use) return;
@@ -73,7 +69,7 @@ function decide(state, actor, ctx) {
   if (visible && !(dry && actor.gun.reload > 0) && !(hurt && b.coverUntil < t - 3)) {
     b.mode = 'engage';
     const target = mem.target, d = actor.pos.distanceTo(target.pos);
-    if (t - mem.noticedAt < 0.05) { // fresh contact: the aim starts off by an error the bot tracks out
+    if (t - mem.noticedAt < 0.05) { // fresh contact: start off-aim, track it out
       const k = diff.aimError * (1 + 12 / Math.max(4, d));
       b.errYaw = rng.signed() * k; b.errPitch = rng.signed() * k * 0.6;
       b.aimHead = rng.chance(diff.headChance);
@@ -87,11 +83,11 @@ function decide(state, actor, ctx) {
   }
   if ((dry || hurt) && t > b.coverUntil && (mem.target || t - actor.lastHit < 2) && findCover(actor, ctx)) b.coverUntil = t + 3.5;
   const recent = mem.target && t - mem.seenAt < SENSE.memory, heard = t - mem.heardAt < 3;
-  if (t < b.coverUntil) { // out of sight of the threat, reloading (see act)
+  if (t < b.coverUntil) {
     b.mode = 'cover';
     goal(b, b.coverX, b.coverZ);
     if (mem.target) look(b, mem.lastX, mem.lastY + 1.5, mem.lastZ);
-  } else if ((recent || heard) && !urgent(state, actor)) { // clear the last sighting, or walk toward a sound
+  } else if ((recent || heard) && !urgent(state, actor)) {
     b.mode = recent ? 'chase' : 'investigate';
     const x = recent ? mem.lastX : mem.heardX, z = recent ? mem.lastZ : mem.heardZ, d = dist2(actor, x, z);
     look(b, x, recent ? mem.lastY + 1.5 : 1.5, z);
@@ -121,7 +117,7 @@ function objective(state, actor, ctx) {
   if (b.routeIndex < b.route.length) {
     const pt = b.route[b.routeIndex], last = b.routeIndex === b.route.length - 1;
     if (dist2(actor, pt.x, pt.z) >= (last ? 1.2 : 2.6)) { goal(b, pt.x, pt.z); b.walk = b.quiet; return; }
-    if (last && !b.released) { // staged at a lane mouth, waiting for the execute
+    if (last && !b.released) { // staged at a lane mouth for the execute
       if (b.hold) look(b, b.hold.lx, 1.6, b.hold.lz); else look(b, pt.x, 1.6, pt.z - 12);
       return;
     }
@@ -134,7 +130,6 @@ function objective(state, actor, ctx) {
   b.crouch = h.crouch;
 }
 
-/** The nearest cell within 8 m that the threat cannot see, preferring ones away from it. */
 function findCover(actor, ctx) {
   const b = actor.bot, mem = b.mem, from = mem.target ? null : b.hurtBy;
   const tx = from ? from.pos.x : mem.lastX, tz = from ? from.pos.z : mem.lastZ;
@@ -171,12 +166,10 @@ function act(state, actor, dt, ctx) {
       mx = (p.x - actor.pos.x) / l; mz = (p.z - actor.pos.z) / l;
     }
   }
-  // footwork in a fight: still while shooting, a strafe between bursts
   if (b.mode === 'engage') {
     if ((b.strafeTime -= dt) <= 0) { b.strafe = state.rng.chance(0.5) ? 1 : -1; b.strafeTime = 0.35 + state.rng.next() * 0.6; }
     if (b.pause > 0 && !b.crouch) { mx = Math.cos(actor.yaw) * b.strafe; mz = -Math.sin(actor.yaw) * b.strafe; }
   }
-  // aim: at the look point (or along the throw arc), else along the walk
   let wantYaw = actor.yaw, wantPitch = 0;
   const throwing = b.mode === 'throw', ey = actor.pos.y + eyeHeight(actor);
   if (throwing || b.hasLook) {
@@ -194,14 +187,12 @@ function act(state, actor, dt, ctx) {
   actor.yaw = wrap(actor.yaw + clampTurn(dy, turn));
   actor.pitch += clampTurn(wantPitch - actor.pitch, turn);
   const aimOff = Math.abs(dy) + Math.abs(wantPitch - actor.pitch);
-  // the wish in the actor's own frame: the same mapping the keyboard uses
   const s = Math.sin(actor.yaw), c = Math.cos(actor.yaw);
   input.fwd = -s * mx - c * mz;
   input.side = c * mx - s * mz;
   input.crouch = b.crouch;
   if (b.mode === 'engage') shoot(state, actor, dt, aimOff, diff, item); else b.burst = 0;
   if (throwing) throwStep(actor, aimOff);
-  // stuck against something: hop and re-plan
   if (b.hasGoal && (mx || mz) && (b.stuck += dt) > 1) {
     if (dist2(actor, b.lastX, b.lastZ) < 0.4) { input.jump = true; b.repath = 0; }
     b.stuck = 0; b.lastX = actor.pos.x; b.lastZ = actor.pos.z;
@@ -233,7 +224,6 @@ function throwStep(actor, aimOff) {
   else if (b.throwArmed) { b.throwType = ''; b.throwArmed = false; } else if (aimOff < 0.05 && actor.gun.draw <= 0) { input.fire = true; b.throwArmed = true; }
 }
 
-/** Launch pitch for a 15 m/s throw landing d metres away and h metres up (the low arc). */
 function lobPitch(d, h) {
   const v2 = 225, g = 15, disc = v2 * v2 - g * (g * d * d + 2 * h * v2);
   return disc < 0 ? 0.6 : Math.atan((v2 - Math.sqrt(disc)) / (g * d)) - 0.08;

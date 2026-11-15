@@ -1,5 +1,4 @@
-// Thrown utility: pooled grenades on bouncing ballistic arcs, frag falloff behind cover, smoke
-// volumes that block sight, flashes that blind by viewing angle.
+// Grenades: bouncing arcs, frag falloff behind cover, smoke that blocks sight, flash by view angle.
 import * as THREE from 'three';
 import { SENSE } from './config.js';
 import { applyDamage } from './combat.js';
@@ -32,7 +31,6 @@ export function throwGrenade(state, actor, def, from, dir) {
   g.pos.copy(from).addScaledVector(dir, 0.4);
   g.prev.copy(g.pos);
   g.vel.copy(dir).multiplyScalar(power).add(actor.vel);
-  state.events.emit('throw', actor).weapon = def;
 }
 
 export function stepGrenades(state, dt, collision) {
@@ -44,7 +42,7 @@ export function stepGrenades(state, dt, collision) {
     if (speed > 1e-4) {
       const t = collision.raycast(g.pos.x, g.pos.y, g.pos.z, g.vel.x / speed, g.vel.y / speed, g.vel.z / speed, speed * dt + 0.06, hit);
       if (t === Infinity) g.pos.addScaledVector(g.vel, dt);
-      else { // bounce: reflect off the face, losing energy
+      else {
         g.pos.addScaledVector(g.vel, Math.max(0, t - 0.06) / speed);
         const vn = g.vel.x * hit.nx + g.vel.y * hit.ny + g.vel.z * hit.nz;
         g.vel.x -= 1.45 * vn * hit.nx; g.vel.y -= 1.45 * vn * hit.ny; g.vel.z -= 1.45 * vn * hit.nz;
@@ -60,7 +58,7 @@ export function stepGrenades(state, dt, collision) {
   }
   for (const s of state.smokes) {
     if (!s.active) continue;
-    s.life -= dt; // billows out over 1.6 s, thins over the last 2
+    s.life -= dt;
     s.radius = Math.min(1, (s.max - s.life) / 1.6) * 4.6 * Math.min(1, s.life / 2);
     s.active = s.life > 0;
   }

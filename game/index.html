@@ -1,11 +1,18 @@
 <!doctype html>
+<!-- ASHGATE design map (src/):
+  Loop: main.js 60 Hz accumulator; sim.js one tick, no DOM; render.js interpolated draw; state.js all state.
+  Movement: movement.js accel, friction, walk, crouch, jump; collision.js step-up, DDA raycasts.
+  Gunplay: combat.js hitscan on actors.js head/torso/leg zones (head x4), armour, spread from speed, bloom, crouch; weapons.js recoil.
+  Utility: grenades.js frag falloff, smoke blocks sight, flash by view angle.
+  Rounds: rounds.js freeze, 1:55 clock, plant (hold E), 40 s fuse, defuse 5 s (3 s kit), four win conditions, half time, first to 7.
+  Money: economy.js pay, loss streak, buy(); screens.js buy menu, scoreboard.
+  Bots: perception.js sight cone, smoke, hearing, callouts; brain.js engage, cover, chase, investigate, plant, defuse, throw; nav.js A*; strategy.js site plans, rotations, retakes.
+  Map and view: mapdata.js ASCII grid; world.js, scenery.js, hud.js, minimap.js, viewmodel.js, effects.js, audio.js; shots.js screenshots. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ASHGATE: Saltworks</title>
-<!-- Palette: night ink #10161b, salt #f4efe6, Cinder #f07a2a, Harbor #3aa6b9, hazard #f2b230, danger #e5483b.
-     System fonts only; tabular monospace figures for every number. -->
 <link rel="stylesheet" href="./style.min.css">
 </head>
 <body>
@@ -13,12 +20,14 @@
 
 <div id="hud" aria-hidden="true">
   <div id="topbar">
-    <div class="team left"><div class="pips" id="pips-0"></div><b id="score-0">0</b></div>
-    <div id="clock"><span id="timer">1:55</span><small id="round-label">Round 1</small></div>
-    <div class="team right"><b id="score-1">0</b><div class="pips" id="pips-1"></div></div>
+    <div class="team left"><span class="tn" id="team-0">CINDER</span><div class="pips" id="pips-0"></div><b id="score-0">0</b></div>
+    <div id="clock"><span id="timer"></span><small id="round-label"></small></div>
+    <div class="team right"><b id="score-1">0</b><div class="pips" id="pips-1"></div><span class="tn" id="team-1">HARBOR</span></div>
   </div>
   <div id="phase-msg"></div>
-  <div id="radar"><canvas id="minimap" width="220" height="220"></canvas><span id="zone">Saltworks</span></div>
+  <div id="charge-tag" hidden></div>
+  <div id="radio" hidden></div>
+  <div id="radar"><canvas id="minimap" width="220" height="220"></canvas><span id="zone"></span></div>
   <ol id="killfeed"></ol>
 
   <div id="crosshair"><i></i><i></i><i></i><i></i></div>
@@ -27,22 +36,21 @@
   <div id="progress" hidden><span id="progress-label">Planting</span><div><i id="progress-fill"></i></div></div>
 
   <div id="vitals">
-    <div id="money">$<b id="money-value">800</b></div>
-    <div class="vital"><span class="icon">+</span><b id="hp">100</b><div class="bar"><i id="hp-bar"></i></div></div>
-    <div class="vital armor"><span class="icon">&#9670;</span><b id="ap">0</b><div class="bar"><i id="ap-bar"></i></div></div>
+    <div id="money"><small>Cash</small>$<b id="money-value">800</b></div>
+    <div class="vital"><small>Health</small><b id="hp">100</b><div class="bar"><i id="hp-bar"></i></div></div>
+    <div class="vital armor"><small>Armour</small><b id="ap">0</b><div class="bar"><i id="ap-bar"></i></div></div>
   </div>
   <div id="arms">
     <ul id="slots"></ul>
-    <div id="weapon-name">Tern P9</div>
-    <div id="ammo"><b id="mag">12</b><span id="reserve">/ 36</span></div>
+    <div id="weapon-name"></div>
+    <div id="ammo"><small>Ammo</small><b id="mag"></b><span id="reserve"></span></div>
   </div>
-  <div id="charge-tag" hidden>CHARGE</div>
   <div id="scope" hidden></div>
   <div id="flashout"></div>
   <div id="hurt-vignette"></div>
 </div>
 
-<div id="banner" hidden><h2 id="banner-title">Cinder Cell win</h2><p id="banner-sub"></p></div>
+<div id="banner" hidden><h2 id="banner-title"></h2><p id="banner-sub"></p></div>
 
 <section id="buy" class="overlay" hidden>
   <div class="panel wide">
@@ -60,9 +68,9 @@
 
 <section id="title" class="overlay">
   <div class="panel title">
-    <p class="kicker">A round-based tactical shooter</p>
+    <p class="kicker">Tactical shooter</p>
     <h1>ASHGATE</h1>
-    <p class="lede">Saltworks, a brine refinery on the harbour at golden hour. Cinder Cell must plant a charge on <b>Site A</b> or <b>Site B</b>; Harbor Watch must stop them or defuse it. You and four squadmates against five. Money carries between rounds. First to seven.</p>
+    <p class="lede">Saltworks, a brine refinery. Cinder Cell plants a charge on <b>Site A</b> or <b>Site B</b>; Harbor Watch stops or defuses it. You and four bots against five. First to seven.</p>
     <button id="play" type="button">Click to play</button>
     <div class="cols">
       <ul class="keys">

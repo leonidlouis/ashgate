@@ -1,5 +1,4 @@
-// The one channel from sim to presentation: a fixed ring of reusable event records, drained once
-// per frame by effects, audio and the HUD.
+// The sim-to-presentation channel: a fixed ring of reusable event records.
 const SIZE = 512;
 
 export function createEventQueue() {
@@ -9,7 +8,7 @@ export function createEventQueue() {
     emit(type, actor = null, at = null) {
       const e = ring[head];
       head = (head + 1) % SIZE;
-      if (head === tail) tail = (tail + 1) % SIZE; // overwrite the oldest when full
+      if (head === tail) tail = (tail + 1) % SIZE;
       e.type = type; e.actor = actor; e.other = e.weapon = null;
       e.x = at ? at.x : 0; e.y = at ? at.y : 0; e.z = at ? at.z : 0;
       e.nx = e.ny = e.nz = e.value = 0; e.flag = false;

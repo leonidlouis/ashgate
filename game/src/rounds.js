@@ -1,5 +1,4 @@
-// Round rules: freeze/buy, live round, plant (hold E), 40 s fuse, defuse (5 s, 3 s with kit), wins
-// by elimination, detonation, defuse or time; pay, MVP, half-time swap, match end at seven.
+// Round rules: freeze, live, plant, 40 s fuse, defuse, win conditions, pay, MVP, half time, match end.
 import { ROUND, ECONOMY, ROUNDS_TO_WIN, HALF_LENGTH, SENSE } from './config.js';
 import { SPOTS, cellX, cellZ, siteAt } from './mapdata.js';
 import { WEAPONS } from './weapons.js';
@@ -45,7 +44,6 @@ export function startRound(state) {
     Object.assign(a, { alive: true, hp: 100, blind: 0, crouch: 0, lastHit: -9, yaw: side === 'atk' ? 0 : Math.PI, pitch: 0, pendingSlot: null });
     a.pos.set(cellX(col), 0, cellZ(row)); a.prev.copy(a.pos); a.vel.set(0, 0, 0);
     a.stats.roundKills = a.stats.roundDamage = 0;
-    // survivors keep their guns; everyone starts with full magazines
     for (const item of [a.primary, a.secondary]) if (item) { item.mag = item.def.mag; item.reserve = item.def.reserve; }
     a.slot = a.primary ? 'primary' : 'secondary';
     Object.assign(a.gun, { cooldown: 0, reload: 0, draw: 0, bloom: 0, shots: 0, punchPitch: 0, punchYaw: 0, scoped: false, throwing: 0 });
@@ -74,7 +72,7 @@ export function stepRound(state, dt) {
   }
   if (r.phase === 'post') {
     if (r.clock > 0) return;
-    if (state.match.over) { r.phase = 'over'; state.events.emit('matchEnd'); } else startRound(state);
+    if (state.match.over) r.phase = 'over'; else startRound(state);
     return;
   }
   r.elapsed += dt;
@@ -85,7 +83,6 @@ export function stepRound(state, dt) {
     else if (r.clock <= 0) endRound(state, 'def', 'time');
     return;
   }
-  // planted: the fuse runs, beeping faster as it burns down
   c.fuse -= dt;
   if ((c.beep -= dt) <= 0) {
     c.beep = Math.max(0.12, 1.1 * (c.fuse / ROUND.fuse) + 0.06);
@@ -106,11 +103,10 @@ export function stepRound(state, dt) {
 
 function stepCarry(state, dt) {
   const c = state.charge;
-  if (c.state === 'dropped') { // any attacker walking over it picks it up
+  if (c.state === 'dropped') {
     for (const a of state.actors) {
       if (!a.alive || sideOf(state, a) !== 'atk' || Math.hypot(a.pos.x - c.pos.x, a.pos.z - c.pos.z) > 1.2) continue;
       c.state = 'carried'; c.carrier = a;
-      state.events.emit('pickup', a);
       return;
     }
     return;
@@ -118,7 +114,7 @@ function stepCarry(state, dt) {
   const a = c.carrier;
   const site = a ? siteAt(a.pos.x, a.pos.z) : '';
   if (!(a && a.input.use && site && a.onGround && a.speed < 1)) { c.planter = null; if (!c.defuser) c.progress = 0; return; }
-  if (c.planter !== a) { c.planter = a; c.progress = 0; state.events.emit('planting', a); }
+  if (c.planter !== a) { c.planter = a; c.progress = 0; }
   if ((c.progress += dt / ROUND.plantTime) < 1) return;
   Object.assign(c, { state: 'planted', carrier: null, site, fuse: ROUND.fuse, progress: 0, planter: null, beep: 0 });
   c.pos.set(a.pos.x, a.pos.y + 0.02, a.pos.z);
@@ -137,7 +133,6 @@ function stepDefuse(state, dt) {
   if (!user) { c.defuser = null; c.progress = 0; return; }
   if (c.defuser !== user) {
     c.defuser = user; c.progress = 0;
-    state.events.emit('defusing', user);
     makeNoise(state, 'charge', c.pos, SENSE.hearUtility, user.squad);
   }
   if ((c.progress += dt / (user.kit ? ROUND.defuseKit : ROUND.defuse)) >= 1) {
@@ -152,7 +147,6 @@ function endRound(state, side, reason) {
   Object.assign(r, { phase: 'post', clock: ROUND.post, winner, reason });
   m.score[winner] += 1;
   payRound(state, winner, reason);
-  // MVP: kills, then damage, plus a bonus for the defuse
   let best = -1;
   r.mvp = null;
   for (const a of state.actors) {

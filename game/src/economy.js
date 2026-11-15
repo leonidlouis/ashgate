@@ -1,5 +1,4 @@
-// Money: round rewards with a loss streak, plant bonus, prices, and one buy() for the menu and the
-// bots. A squad with a thin bank saves together.
+// Money: round pay with loss streak, plant bonus, prices, buy() for menu and bots.
 import { ECONOMY, ROUND } from './config.js';
 import { itemDef } from './weapons.js';
 import { sideOf } from './state.js';
@@ -9,7 +8,6 @@ export function canBuy(state, actor) {
   return actor.alive && !state.match.over && (r.phase === 'freeze' || (r.phase === 'live' && r.elapsed < ROUND.buyWindow - ROUND.freeze));
 }
 
-/** A helmet costs only its own share when you already wear a full vest. */
 export const priceOf = (actor, entry) => (entry.id === 'helmet' && actor.armor >= 100 && !actor.helmet ? 350 : itemDef(entry).price);
 
 export function buyBlock(state, actor, entry) {
@@ -53,7 +51,7 @@ export function payRound(state, winner, reason) {
   for (const a of state.actors) {
     const attacker = sideOf(state, a) === 'atk';
     let gain = a.squad === winner ? win : loss + (planted && attacker ? ECONOMY.plantBonus : 0);
-    if (a.squad === loser && reason === 'time' && a.alive && attacker) gain = 0; // ran the clock out without planting
+    if (a.squad === loser && reason === 'time' && a.alive && attacker) gain = 0;
     a.money = Math.min(ECONOMY.max, a.money + gain);
   }
 }
@@ -63,7 +61,6 @@ const [RIFLE, MARKSMAN, SMG, SHOTGUN] = ['kestrel', 'longshore', 'wisp', 'breake
 const [HELMET, VEST, KIT] = ['helmet', 'vest', 'kit'].map((id) => item('gear', id));
 const [FRAG, SMOKE, FLASH] = ['frag', 'smoke', 'flash'].map((id) => item('grenade', id));
 
-/** A bot's shopping list for the round: full buy, force buy, or save with the squad. */
 export function botBuy(state, actor, squadSaves) {
   const rng = state.rng, kind = actor.primary ? actor.primary.def.kind : '', m = () => actor.money;
   if (kind !== 'rifle' && kind !== 'marksman') {

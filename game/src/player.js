@@ -1,5 +1,4 @@
-// The human: mouse turns the view, keys fill the same input record a bot fills, presses switch
-// weapons or toggle the scope.
+// Keyboard and mouse into the same input record a bot fills.
 import { heldItem } from './actors.js';
 import { switchTo } from './combat.js';
 
@@ -10,7 +9,6 @@ export function createPlayerController(input, settings) {
   const keys = input.state.keys;
   const axis = (plus, minus) => (keys.has(plus) ? 1 : 0) - (keys.has(minus) ? 1 : 0);
   return {
-    /** Once per rendered frame: mouse look (not tied to the tick, so it never feels late). */
     look(actor) {
       input.takeLook(look);
       if (!actor.alive) return look;

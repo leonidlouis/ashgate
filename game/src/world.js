@@ -1,12 +1,10 @@
-// Saltworks meshes: the grid as merged world-UV geometry (one mesh per material), plus tanks,
-// barrels, pipes, trusses, the mid gantry, site letters and signage.
+// Saltworks meshes: merged world-UV geometry per material, props, gantry, site letters, signs.
 import * as THREE from 'three';
 import { GRID, LEGEND, COLS, ROWS, CELL, cellX, cellZ } from './mapdata.js';
 import { createMaterials, signTexture } from './textures.js';
 
 class Batch {
   constructor() { this.p = []; this.n = []; this.uv = []; this.i = []; }
-  /** A quad from corner o along edges a and b (normal n), UVs spanning [u0, u0 + ul] x [v0, v0 + vl]. */
   quad(o, a, b, n, [u0, ul], [v0, vl]) {
     const k = this.p.length / 3;
     for (const [s, t] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
@@ -16,7 +14,6 @@ class Batch {
     }
     this.i.push(k, k + 1, k + 2, k, k + 2, k + 3);
   }
-  /** An axis-aligned box with world-space UVs (tile = metres per repeat; 0 = one texture per face). */
   box(x0, y0, z0, x1, y1, z1, tile, bottom = false) {
     const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
     const u = (start, len) => (tile ? [start / tile, len / tile] : [0, 1]);
@@ -73,7 +70,7 @@ export function buildWorld(scene, collision) {
     const col = (x0 + x1) / 2 / CELL + COLS / 2;
     switch (b.ch) {
       case '#': batch(mats.perimeter).box(x0, 0, z0, x1, y1, z1, 6); break;
-      case 'M': // concrete plinth, corrugated walls (rust west, salt mid, ochre east), dark parapet
+      case 'M':
         batch(mats.concrete).box(x0, 0, z0, x1, 1.1, z1, 4);
         batch(col < 20.5 ? mats.rustMetal : col > 26.5 ? mats.ochreMetal : mats.saltMetal).box(x0 + 0.04, 1.1, z0 + 0.04, x1 - 0.04, y1 - 0.3, z1 - 0.04, 4);
         batch(mats.dark).box(x0 - 0.05, y1 - 0.3, z0 - 0.05, x1 + 0.05, y1, z1 + 0.05, 4);
@@ -92,9 +89,7 @@ export function buildWorld(scene, collision) {
   }
   for (const [mat, b] of batches) root.add(b.mesh(mat, mat !== mats.sand && mat !== mats.salt && mat !== mats.tiles));
 
-  // the Pump Hall lost its roof long ago; the trusses remain
   for (let r = 2; r <= 14; r += 3) add(root, cube, mats.pipeRust, [30, 0.35, 0.3], [cellX(39), 5.6, cellZ(r)]);
-  // a conveyor gantry bridging the Brine Channel between the warehouse roofs
   const gz = cellZ(27), gx = cellX(23.5);
   add(root, cube, mats.dark, [18, 0.4, 2.4], [gx, 5.4, gz]);
   add(root, cube, mats.rustMetal, [18, 0.5, 1.4], [gx, 5.85, gz]);
@@ -113,7 +108,7 @@ function neighbourFloor(c, r) {
 
 function addTank(root, mats, b) {
   const w = b.maxX - b.minX, d = b.maxZ - b.minZ, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
-  if (Math.abs(w - d) > 0.1) { // a brine tank lying on its side
+  if (Math.abs(w - d) > 0.1) {
     const r = Math.min(w, d) / 2 - 0.05;
     add(root, cylinder, mats.steel, [r, Math.max(w, d) - 0.3, r], [cx, r + 0.15, cz], w > d ? [0, 0, Math.PI / 2] : [Math.PI / 2, 0, 0]);
     return;
@@ -137,15 +132,13 @@ function plane(root, tex, [x, y, z], [w, h], yaw, flat, opacity = 1) {
 function addSigns(root) {
   plane(root, signTexture([{ text: 'A', size: 220, y: 128 }], null, '#e86f2a', 256, 256), [cellX(8), 0.02, cellZ(6)], [5, 5], 0, true, 0.85);
   plane(root, signTexture([{ text: 'B', size: 220, y: 128 }], null, '#3d9fae', 256, 256), [cellX(40), 0.02, cellZ(7)], [5, 5], 0, true, 0.6);
-  // boards on the walls: [title, subtitle, board, ink, cell col, cell row, wall offset, yaw]
-  const E = Math.PI / 2;
-  const boards = [
+  const E = Math.PI / 2, boards = [
     ['A', 'EVAPORATION PANS', '#efe8da', '#c4521f', 18.5, 10, [0, 1.03], 0],
     ['B', 'PUMP HALL', '#efe8da', '#23707a', 37, 16, [0, -0.98], Math.PI],
     ['BRINE CHANNEL', 'A  ←   MID   →  B', '#1c2a33', '#efe8da', 23.5, 17, [0, 1.03], 0],
     ['SALT YARD', '↑  SITE A', '#a5532e', '#efe8da', 9, 33, [-1.02, 0], -E],
     ['CONVEYOR ROW', '↑  SITE B', '#e2c27e', '#1c2a33', 37, 33, [1.02, 0], E],
-    ['SALTWORKS', 'BRINE REFINERY No. 3', '#efe8da', '#1c2a33', 15, 36, [0, 1.03], 0],
+    ['SALTWORKS', 'REFINERY No. 3', '#efe8da', '#1c2a33', 15, 36, [0, 1.03], 0],
     ['PIPE ALLEY', '→  B', '#efe8da', '#23707a', 27, 18, [-1.02, 0], -E],
   ];
   for (const [title, sub, bg, fg, c, r, [ox, oz], yaw] of boards) {

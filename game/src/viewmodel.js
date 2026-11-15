@@ -1,5 +1,4 @@
-// The gun in your hands, in its own scene and depth pass: weapons from a table, side-coloured
-// sleeves, sway, bob, recoil kick, reload dip, draw, slash, wind-up and muzzle flash.
+// The first-person gun in its own pass: sway, bob, recoil kick, reload, draw, slash, flash.
 import * as THREE from 'three';
 import { canvasTexture, material } from './textures.js';
 import { heldItem } from './actors.js';
@@ -9,8 +8,7 @@ const clamp = (v) => Math.max(-0.05, Math.min(0.05, v));
 const M = material;
 const MATS = { steel: M(0x4a4d52, 0.42, 0.35), tan: M(0xc8a274, 0.8, 0.05), black: M(0x26272a, 0.6, 0.2), wood: M(0x7a4a28, 0.7, 0), teal: M(0x2f7478, 0.5, 0.3), blade: M(0xd8d8d0, 0.2, 0.9), olive: M(0x4a5a3a, 0.7, 0.2), grey: M(0x8a8f92, 0.6, 0.3), cream: M(0xd8d0b0, 0.5, 0.4) };
 const GEO = { b: new THREE.BoxGeometry(1, 1, 1), c: new THREE.CylinderGeometry(1, 1, 1, 12), s: new THREE.SphereGeometry(1, 10, 8) };
-// kind: [muzzle z, parts...] in centimetres; a part is 'shape material sx sy sz x y z [tilt roll]' with shape
-// b box, t barrel tube, c can, s ball, and tilt/roll in radians
+// kind: [muzzle z, 'shape mat sx sy sz x y z [tilt roll]'...] in cm; shape b box, t tube, c can, s ball
 const MODELS = {
   rifle: [-82, 'b steel 7 10 42 0 0 -10', 'b tan 7.5 8 26 0 -0.5 -42', 't steel 1.4 30 1.4 0 1 -66',
     'b black 5 20 8.5 0 -14 -16 0.25', 'b tan 6 12 26 0 -4 22', 'b black 4.5 12 6 0 -10 3 -0.3', 'b black 3 5 12 0 7.5 -12'],
@@ -59,7 +57,6 @@ export function createViewModel(aspect) {
   scene.add(rig);
   const models = {};
   for (const kind of Object.keys(MODELS)) { models[kind] = build(new THREE.Group(), MODELS[kind].slice(1)); models[kind].visible = false; rig.add(models[kind]); }
-  // gloves on grip and fore-end; forearms run down and back out of frame, never through the camera
   const hands = { glove: M(0x2a2622, 0.9, 0), sleeve: M(SLEEVES.atk, 0.9, 0).clone() };
   const right = build(new THREE.Group(), ['b glove 6 8 9 0.5 -9 5', 'b sleeve 8.5 8.5 30 3 -20 12 1.15'], hands);
   const left = build(new THREE.Group(), ['b glove 7 5.5 9 0 -5 0', 'b sleeve 8 8 32 -4 -17 6 1.35 0.25'], hands);
@@ -73,13 +70,12 @@ export function createViewModel(aspect) {
     else { flashTime = 0.05; flash.material.rotation += 2.1; }
   }
 
-  /** Pose for the frame from the viewer's soldier state, its side and this frame's mouse motion. */
   function update(actor, side, look, dt) {
     const item = heldItem(actor), gun = actor.gun;
     models[current].visible = false;
     current = item ? item.def.kind : actor.grenadeType;
     models[current].visible = true;
-    left.visible = MODELS[current].length > 3; // two-handed guns only
+    left.visible = MODELS[current].length > 3;
     left.position.set(0, -0.01, current === 'shotgun' ? -0.44 : current === 'smg' ? -0.27 : -0.4);
     hands.sleeve.color.setHex(SLEEVES[side]);
     rig.visible = !gun.scoped && actor.alive;
@@ -92,7 +88,6 @@ export function createViewModel(aspect) {
     slash = Math.max(0, slash - dt * 3.5);
     flashTime -= dt;
     const dip = gun.reload > 0 ? Math.sin(Math.min(1, 1 - gun.reload / item.def.reload) * Math.PI) : 0;
-    // hands drop while drawing, and while planting or defusing
     const raise = Math.max(0, gun.draw, actor.input.use && actor.speed < 1 ? 0.3 : 0) / 0.5, wind = gun.throwing > 0 ? 1 : 0;
     rig.position.set(0.2 + swayX + Math.cos(bob) * 0.012 * moving, -0.2 + swayY - Math.abs(Math.sin(bob)) * 0.014 * moving - dip * 0.12 - raise * 0.25 + wind * 0.08, -0.44 + kick * 0.07);
     rig.rotation.set(kick * 0.12 + gun.punchPitch * 0.6 - dip * 0.6 - raise * 0.6 + wind * 0.9, swayX * 2 - slash * 1.2, dip * 0.5 + slash * 0.6);
