@@ -1,5 +1,11 @@
 # ASHGATE: Saltworks
 
+[![make.fun · threejs-fps-02](https://make.fun/badge/threejs-fps-02.svg)](https://make.fun/bounty/threejs-fps-02?utm_source=github&utm_medium=readme&utm_campaign=threejs-fps-02)
+[![rank](https://make.fun/badge/threejs-fps-02/leonidlouis/ashgate/rank.svg)](https://make.fun/bounty/threejs-fps-02/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=threejs-fps-02)
+[![reward](https://make.fun/badge/threejs-fps-02/leonidlouis/ashgate/reward.svg)](https://make.fun/bounty/threejs-fps-02?utm_source=github&utm_medium=readme&utm_campaign=threejs-fps-02)
+
+An entry in the make.fun bounty [threejs-fps-02: Make the best three.js tactical FPS](https://make.fun/bounty/threejs-fps-02).
+
 A round-based tactical first-person shooter for the browser, built on three.js with no build step.
 Two squads of five fight over **Saltworks**, a sun-bleached brine refinery on the harbour at golden
 hour. **Cinder Cell** attacks and must plant a charge on Site A (the Evaporation Pans) or Site B (the
